@@ -1,0 +1,81 @@
+name: Publish Package
+
+on:
+  push:
+    branches: [ main, master, 'release/**' ]
+  pull_request:
+    branches: [ main, master, 'release/**' ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Install dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+    - name: Determine version
+      id: version
+      run: |
+        # Get current version from csproj
+        VERSION=$(grep -oP '<Version>\K[^<]+' Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj)
+        
+        # If on main/master, increment patch
+        if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          NEW_VERSION="$major.$minor.$((patch + 1))"
+        else
+          # For release branches, add alpha suffix
+          NEW_VERSION="${VERSION}-alpha.${GITHUB_SHA::8}"
+        fi
+        
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+        echo "New version: $NEW_VERSION"
+
+    - name: Update version
+      run: |
+        dotnet build-server shutdown
+        dotnet build /p:Version=${{ steps.version.outputs.version }} --configuration Release
+
+    - name: Pack
+      run: dotnet pack Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj --configuration Release --no-build --output ./artifacts
+
+    - name: Push to NuGet
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')
+      run: |
+        dotnet nuget push ./artifacts/*.nupkg --api-key ${{ env.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Create Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ steps.version.outputs.version }}
+        tag_name: v${{ steps.version.outputs.version }}
+        body: |
+          ## Changes
+          - Automated release
+        draft: false
+        prerelease: false 
