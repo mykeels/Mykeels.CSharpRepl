@@ -55,10 +55,27 @@ jobs:
         echo "Current version: $VERSION"
         echo "New version: $NEW_VERSION"
 
-    - name: Update version
+    - name: Build
       run: |
         dotnet build-server shutdown
         dotnet build /p:Version=${{ steps.version.outputs.version }} --configuration Release
+
+    - name: Update version in csproj
+      run: |
+        sed -i "s/<Version>.*<\/Version>/<Version>${{ steps.version.outputs.version }}<\/Version>/" Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj
+        
+        # Verify the change
+        echo "Updated version in csproj:"
+        grep "<Version>" Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj
+
+    - name: Commit version update
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj
+        git commit -m "Bump version to ${{ steps.version.outputs.version }}"
+        git push
 
     - name: Pack
       run: dotnet pack Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj --configuration Release --no-build --output ./artifacts
