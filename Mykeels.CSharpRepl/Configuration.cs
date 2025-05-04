@@ -97,8 +97,21 @@ public sealed class Configuration
         string applicationName = "Mykeels.CSharpRepl"
     )
     {
-        References = references?.ToHashSet() ?? [];
-        Usings = usings?.ToHashSet() ?? [];
+        References = (references?.ToHashSet() ?? []).Concat(
+            AppDomain
+                .CurrentDomain.GetAssemblies()
+                .Select(a => $"{a.GetName().Name}.dll")
+                .ToArray()
+        ).ToHashSet();
+        Usings = (usings?.ToHashSet() ?? []).Concat([
+            "System",
+            "System.Collections.Generic",
+            "System.IO",
+            "System.Linq",
+            "System.Net.Http",
+            "System.Threading",
+            "System.Threading.Tasks"
+        ]).ToHashSet();
         Framework = framework ?? FrameworkDefault;
         Trace = trace;
         UseTerminalPaletteTheme = useTerminalPaletteTheme;

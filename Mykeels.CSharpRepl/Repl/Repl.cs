@@ -14,10 +14,11 @@ namespace Mykeels.CSharpRepl;
 
 public static class Repl
 {
-    public static async Task<int> Run(Configuration config)
+    public static async Task<int> Run(Configuration? config = null)
     {
         Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;
+        config ??= new Configuration();
 
         // parse command line input
         IConsoleEx console = new SystemConsoleEx();
