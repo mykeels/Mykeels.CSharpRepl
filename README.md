@@ -1,7 +1,6 @@
 # Mykeels.CSharpRepl
 
-This library is a stripped-down, plug-n-play version of [CSharpRepl.Services](https://github.com/
-waf/CSharpRepl/tree/bd79130d49c06736a2d5f4d56ac7643889ad2328/CSharpRepl.Services). It is a powerful C# REPL (Read-Eval-Print Loop) that can be embedded into any .NET application, providing an interactive C# environment with syntax highlighting, code completion, and more.
+This library is a stripped-down, plug-n-play version of [CSharpRepl.Services](https://github.com/waf/CSharpRepl/tree/bd79130d49c06736a2d5f4d56ac7643889ad2328/CSharpRepl.Services). It is a powerful C# REPL (Read-Eval-Print Loop) that can be embedded into any .NET application, providing an interactive C# environment with syntax highlighting, code completion, and more.
 
 ## Installation
 
