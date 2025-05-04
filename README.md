@@ -71,6 +71,27 @@ await Repl.Run(
 );
 ```
 
+## Pre-execution Commands
+
+You can specify commands to be executed before the REPL starts. This is useful for setting up the environment or importing commonly used types:
+
+```csharp
+await Repl.Run(
+    commands: [
+        // Import ScriptGlobals to make its methods available directly
+        "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;"
+    ]
+);
+```
+
+## ScriptGlobals
+
+You can add your own ScriptGlobals by adding a static class with static methods and properties, and then running a pre-execution command on REPL startup.
+
+```csharp
+"using static Mykeels.CSharpRepl.Sample.ScriptGlobals;"
+```
+
 ## Features
 
 - **Syntax Highlighting**: Code is colorized for better readability
@@ -89,6 +110,7 @@ The `Configuration` class supports the following options:
 - `applicationName`: Name of your application
 - `logSuccess`: Callback for handling successful evaluations
 - `logError`: Callback for handling evaluation errors
+- `commands`: Array of commands to execute before starting the REPL
 
 ## Examples
 
@@ -121,12 +143,24 @@ await Repl.Run(
 );
 ```
 
+### With Pre-execution Commands
+
+```csharp
+await Repl.Run(
+    commands: [
+        "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;",
+        "var greeting = \"Hello, World!\";"
+    ]
+);
+```
+
 ## Best Practices
 
 1. **Assembly References**: Include all necessary assemblies in the `references` array
 2. **Namespaces**: Add commonly used namespaces to the `usings` array
 3. **Error Handling**: Implement custom error handling in `logError` for better debugging
 4. **Output Formatting**: Use `AnsiConsole` for colored output and better readability
+5. **Pre-execution Commands**: Use `commands` to set up your environment and import commonly used types
 
 ## License
 
