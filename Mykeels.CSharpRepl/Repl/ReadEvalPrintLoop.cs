@@ -29,7 +29,7 @@ internal sealed class ReadEvalPrintLoop
         this.prompt = prompt;
     }
 
-    public async Task RunAsync(Configuration config)
+    public async Task RunAsync(Configuration config, Action<RoslynServices>? onLoad = null)
     {
         ReadEvalPrintLoop.config = config;
         console.WriteLine($"Welcome to the {config.ApplicationName} REPL (Read Eval Print Loop)!");
@@ -42,6 +42,8 @@ internal sealed class ReadEvalPrintLoop
         console.WriteLine(string.Empty);
 
         await Preload(roslyn, console, config).ConfigureAwait(false);
+
+        onLoad?.Invoke(roslyn);
 
         while (true)
         {

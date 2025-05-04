@@ -14,11 +14,13 @@ namespace Mykeels.CSharpRepl;
 
 public static class Repl
 {
-    public static async Task<int> Run(Configuration? config = null)
+    public static async Task<int> Run(Configuration? config = null, List<string>? commands = null, Action<RoslynServices>? onLoad = null)
     {
         Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;
         config ??= new Configuration();
+        commands ??= new List<string>();
+        onLoad ??= (roslyn) => { };
 
         // parse command line input
         IConsoleEx console = new SystemConsoleEx();
@@ -43,7 +45,15 @@ public static class Repl
             try
             {
                 await new ReadEvalPrintLoop(console, roslyn, prompt)
-                    .RunAsync(config)
+                    .RunAsync(config, roslyn => {
+                        onLoad?.Invoke(roslyn);
+                        foreach (var command in commands)
+                        {
+                            roslyn
+                                .EvaluateAsync(command, config.LoadScriptArgs, CancellationToken.None)
+                                .ConfigureAwait(false);
+                        }
+                    })
                     .ConfigureAwait(false);
             }
             finally
