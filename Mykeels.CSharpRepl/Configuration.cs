@@ -102,7 +102,9 @@ public sealed class Configuration
                 .CurrentDomain.GetAssemblies()
                 .Select(a => $"{a.GetName().Name}.dll")
                 .ToArray()
-        ).ToHashSet();
+        )
+        .Concat(ReferenceManager.GetReferencePaths())
+        .ToHashSet();
         Usings = (usings?.ToHashSet() ?? []).Concat([
             "System",
             "System.Collections.Generic",
