@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using CSharpRepl.Logging;
 using CSharpRepl.Services.Roslyn.References;
 using CSharpRepl.Services.Theming;
 using Microsoft.CodeAnalysis.Completion;
@@ -101,6 +102,8 @@ public sealed class Configuration
         Framework = framework ?? FrameworkDefault;
         Trace = trace;
         UseTerminalPaletteTheme = useTerminalPaletteTheme;
+        logSuccess ??= JsonLogger.LogSuccess;
+        logError ??= JsonLogger.LogError;
 
         if (useTerminalPaletteTheme)
         {
