@@ -7,22 +7,7 @@
 //     ]
 // );
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Server;
+using Mykeels.CSharpRepl.MCP;
+using Mykeels.CSharpRepl.Sample;
 
-var builder = Host.CreateApplicationBuilder(args);
-
-builder.Logging.AddConsole(consoleLogOptions =>
-{
-    // Configure all logs to go to stderr
-    consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
-});
-
-builder.Services
-    .AddMcpServer()
-    .WithStdioServerTransport()
-    .WithToolsFromAssembly(); // Registers all [McpServerToolType] in the assembly
-
-await builder.Build().RunAsync();
+await McpServer.Run(typeof(ScriptGlobals));
