@@ -43,10 +43,10 @@ public static class McpServer
                                         {
                                             "type": "object",
                                             "properties": {
-                                            "message": {
-                                                "type": "string",
-                                                "description": "The input to echo back"
-                                            }
+                                                "message": {
+                                                    "type": "string",
+                                                    "description": "The input to echo back"
+                                                }
                                             },
                                             "required": ["message"]
                                         }
