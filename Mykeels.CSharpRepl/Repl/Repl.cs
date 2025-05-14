@@ -9,11 +9,40 @@ using CSharpRepl.Services;
 using CSharpRepl.Services.Logging;
 using CSharpRepl.Services.Roslyn;
 using PrettyPrompt;
+using CSharpRepl.Services.Roslyn.Scripting;
 
 namespace Mykeels.CSharpRepl;
 
 public static class Repl
 {
+    public static async Task<EvaluationResult> Evaluate(string commandText)
+    {
+        Console.InputEncoding = Encoding.UTF8;
+        Console.OutputEncoding = Encoding.UTF8;
+        var config = new Configuration();
+
+        // parse command line input
+        IConsoleEx console = new SystemConsoleEx();
+
+        SetDefaultCulture(config);
+
+        // initialize roslyn
+        var logger = InitializeLogging(config.Trace);
+        var roslyn = new RoslynServices(console, config, logger);
+        await ReadEvalPrintLoop.Preload(roslyn, console, config);
+
+        try
+        {
+            return await roslyn
+                .EvaluateAsync(commandText, config.LoadScriptArgs, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            return new EvaluationResult.Error(exception);
+        }
+    }
+
     public static async Task<int> Run(Configuration? config = null, List<string>? commands = null, Action<RoslynServices>? onLoad = null)
     {
         Console.InputEncoding = Encoding.UTF8;

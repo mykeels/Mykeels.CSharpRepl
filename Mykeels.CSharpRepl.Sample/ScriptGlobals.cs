@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Spectre.Console;
+using System.ComponentModel;
 
 namespace Mykeels.CSharpRepl.Sample;
 
@@ -19,6 +20,8 @@ public static class ScriptGlobals
     /// Gets a new instance of HttpClient for making HTTP requests.
     /// </summary>
     public static HttpClient Http => new();
+
+    public static string GetCurrentDirectory() => CurrentDirectory;
 
     /// <summary>
     /// Gets the current working directory.

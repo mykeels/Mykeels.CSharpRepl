@@ -102,12 +102,13 @@ internal sealed class ReadEvalPrintLoop
         }
     }
 
-    private static async Task Preload(
+    public static async Task Preload(
         RoslynServices roslyn,
         IConsoleEx console,
         Configuration config
     )
     {
+        ReadEvalPrintLoop.config = config;
         bool hasReferences = config.References.Count > 0;
         bool hasLoadScript = config.LoadScript is not null;
         if (!hasReferences && !hasLoadScript)
@@ -121,7 +122,10 @@ internal sealed class ReadEvalPrintLoop
             console.WriteLine("Adding supplied references...");
             var loadReferenceScript = string.Join(
                 "\r\n",
-                config.References.Select(reference => $@"#r ""{reference}""")
+                config.References
+                    .Select(reference => $@"#r ""{reference}""")
+                    .Where(reference => !reference.Contains("Anonymously Hosted DynamicMethods"))
+                    .Where(reference => !reference.Contains("-"))
             );
             var loadReferenceScriptResult = await roslyn
                 .EvaluateAsync(loadReferenceScript)
