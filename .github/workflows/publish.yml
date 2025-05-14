@@ -61,6 +61,7 @@ jobs:
         dotnet build /p:Version=${{ steps.version.outputs.version }} --configuration Release
 
     - name: Update version in csproj
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       run: |
         sed -i "s/<Version>.*<\/Version>/<Version>${{ steps.version.outputs.version }}<\/Version>/" Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj
         
@@ -81,7 +82,6 @@ jobs:
       run: dotnet pack Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj --configuration Release --no-build --output ./artifacts
 
     - name: Push to NuGet
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')
       run: |
         dotnet nuget push ./artifacts/*.nupkg --api-key ${{ env.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
