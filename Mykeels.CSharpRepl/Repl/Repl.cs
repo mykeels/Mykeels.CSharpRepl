@@ -15,7 +15,7 @@ namespace Mykeels.CSharpRepl;
 
 public static class Repl
 {
-    public static async Task<EvaluationResult> Evaluate(string commandText, Type globalsType)
+    public static async Task<EvaluationResult> Evaluate(string commandText)
     {
         Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;

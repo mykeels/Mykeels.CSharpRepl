@@ -45,7 +45,7 @@ public static class InvokeTool
         string expression = $"using static {_globalsType.FullName}; {commandText.TrimEnd(';')}";
         try
         {
-            var result = await Repl.Evaluate(expression, _globalsType);
+            var result = await Repl.Evaluate(expression);
             if (result is EvaluationResult.Error error)
             {
                 throw error.Exception;
