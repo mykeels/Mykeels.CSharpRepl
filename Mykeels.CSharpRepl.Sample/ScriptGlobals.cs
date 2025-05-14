@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Spectre.Console;
 using System.ComponentModel;
-using ModelContextProtocol.Server;
 
 namespace Mykeels.CSharpRepl.Sample;
 
@@ -15,7 +14,6 @@ namespace Mykeels.CSharpRepl.Sample;
 /// Provides access to common services and utilities for the REPL.
 /// All static properties and methods in this class are automatically available in the REPL.
 /// </summary>
-[McpServerToolType]
 public static class ScriptGlobals
 {
     /// <summary>
@@ -23,7 +21,6 @@ public static class ScriptGlobals
     /// </summary>
     public static HttpClient Http => new();
 
-    [McpServerTool, Description("Gets the current working directory.")]
     public static string GetCurrentDirectory() => CurrentDirectory;
 
     /// <summary>
