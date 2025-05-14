@@ -42,10 +42,10 @@ jobs:
         # Get current version from csproj
         VERSION=$(grep -oP '<Version>\K[^<]+' Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj)
         
-        # If on main/master, increment patch
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        NEW_VERSION="$major.$minor.$((patch + 1))"
         if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
-          IFS='.' read -r major minor patch <<< "$VERSION"
-          NEW_VERSION="$major.$minor.$((patch + 1))"
+          NEW_VERSION="${VERSION}"
         else
           # For release branches, add alpha suffix
           NEW_VERSION="${VERSION}-alpha.${GITHUB_SHA::8}"
