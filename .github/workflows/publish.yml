@@ -48,7 +48,7 @@ jobs:
           NEW_VERSION="${VERSION}"
         else
           # For release branches, add alpha suffix
-          NEW_VERSION="${VERSION}-alpha.${GITHUB_SHA::8}"
+          NEW_VERSION="${VERSION}-alpha.${GITHUB_RUN_NUMBER}"
         fi
         
         echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
