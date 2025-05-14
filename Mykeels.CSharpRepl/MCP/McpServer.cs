@@ -43,6 +43,7 @@ public static class McpServer
 
                     CallToolHandler = async (request, cancellationToken) =>
                     {
+                        InvokeTool._globalsType = globalsType;
                         return await Handle(request, new Dictionary<string, Func<RequestContext<CallToolRequestParams>, Task<CallToolResponse>>>()
                         {
                             { ListMembersTool.Name, ListMembersTool.Handle },

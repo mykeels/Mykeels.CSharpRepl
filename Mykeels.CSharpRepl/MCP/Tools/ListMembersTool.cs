@@ -7,7 +7,7 @@ namespace Mykeels.CSharpRepl;
 
 public static class ListMembersTool
 {
-    public static string Name = "list";
+    public const string Name = "list";
 
     public static Tool Initialize(Type globalsType)
     {

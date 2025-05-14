@@ -1,4 +1,5 @@
 using CSharpRepl.Logging;
+using CSharpRepl.Services.Roslyn.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol.Types;
@@ -9,8 +10,8 @@ namespace Mykeels.CSharpRepl;
 
 public static class InvokeTool
 {
-    public static string Name = "invoke";
-    private static Type _globalsType = typeof(object);
+    public const string Name = "invoke";
+    public static Type _globalsType = typeof(object);
 
     public static Tool Initialize(Type globalsType)
     {
@@ -41,16 +42,32 @@ public static class InvokeTool
             throw new McpException("Missing required argument 'command'");
         }
         string commandText = command.GetString() ?? throw new McpException("Argument 'command' must be a string");
+        string expression = $"using static {_globalsType.FullName}; {commandText.TrimEnd(';')}";
         try
         {
-            var result = await CSharpScript.EvaluateAsync(commandText, globalsType: _globalsType);
-            string output = JsonLogger.LogSuccess(commandText, result);
-            return await Task.FromResult(new CallToolResponse()
+            var result = await Repl.Evaluate(expression, _globalsType);
+            if (result is EvaluationResult.Error error)
             {
-                Content = [
-                    new Content() { Text = output, Type = "text" }
-                ]
-            });
+                throw error.Exception;
+            }
+            else if (result is EvaluationResult.Success success)
+            {
+                string output = JsonLogger.LogSuccess(commandText, new { Result = success.ReturnValue.Value });
+                return await Task.FromResult(new CallToolResponse()
+                {
+                    Content = [
+                        new Content() { Text = output, Type = "text" }
+                    ]
+                });
+            }
+            else if (result is EvaluationResult.Cancelled cancelled)
+            {
+                throw new McpException("Evaluation cancelled");
+            }
+            else
+            {
+                throw new McpException("Invalid result type");
+            }
         }
         catch (Exception exception)
         {
