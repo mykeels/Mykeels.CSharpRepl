@@ -117,8 +117,8 @@ public sealed class Configuration
         Framework = framework ?? FrameworkDefault;
         Trace = trace;
         UseTerminalPaletteTheme = useTerminalPaletteTheme;
-        logSuccess ??= JsonLogger.LogSuccess;
-        logError ??= JsonLogger.LogError;
+        logSuccess ??= (message, result) => JsonLogger.LogSuccess(message, result);
+        logError ??= (message, exception, _) => JsonLogger.LogError(message, exception, null!);
 
         if (useTerminalPaletteTheme)
         {

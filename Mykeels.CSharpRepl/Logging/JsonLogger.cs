@@ -4,16 +4,17 @@ namespace CSharpRepl.Logging;
 
 public static class JsonLogger
 {
-    public static void LogSuccess(string message, object result)
+    public static string LogSuccess(string message, object result)
     {
         Console.WriteLine($"<< {message}");
         string output = Newtonsoft.Json.JsonConvert.SerializeObject(
             result
         );
         AnsiConsole.MarkupLine($"[green]>> {output.EscapeMarkup().Trim()}[/]");
+        return output;
     }
 
-    public static void LogError(string message, Exception exception, object _)
+    public static string LogError(string message, Exception exception, object _)
     {
         Console.WriteLine($"<< {message}");
         string output = Newtonsoft.Json.JsonConvert.SerializeObject(
@@ -22,5 +23,6 @@ public static class JsonLogger
             }
         );
         AnsiConsole.MarkupLine($"[red]>> {output.EscapeMarkup().Trim()}[/]");
+        return output;
     }
 }

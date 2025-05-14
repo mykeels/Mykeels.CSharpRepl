@@ -1,6 +1,5 @@
 ﻿using CSharpRepl.Services;
 using Mykeels.CSharpRepl;
-using Mykeels.CSharpRepl.MCP;
 using Mykeels.CSharpRepl.Sample;
 
 if (args.Contains("repl"))
