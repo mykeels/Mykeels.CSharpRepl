@@ -1,6 +1,6 @@
 # Mykeels.CSharpRepl
 
-This library is a stripped-down, plug-n-play version of [CSharpRepl.Services](https://github.com/waf/CSharpRepl/tree/bd79130d49c06736a2d5f4d56ac7643889ad2328/CSharpRepl.Services). It is a powerful C# REPL (Read-Eval-Print Loop) that can be embedded into any .NET application, providing an interactive C# environment with syntax highlighting, code completion, and more.
+This library is a stripped-down, plug-n-play version of [CSharpRepl.Services](https://github.com/waf/CSharpRepl/tree/bd79130d49c06736a2d5f4d56ac7643889ad2328/CSharpRepl.Services). It is a powerful C# REPL (Read-Eval-Print Loop) that can be embedded into any .NET application, providing an interactive C# REPL environment with syntax highlighting, code completion, MCP server, and more.
 
 ## Installation
 
@@ -10,7 +10,7 @@ dotnet add package Mykeels.CSharpRepl
 
 ## Quick Start
 
-Here's a minimal example of how to use Mykeels.CSharpRepl in your application:
+Here's a minimal example of how to use Mykeels.CSharpRepl in your application to launch a REPL:
 
 ```csharp
 using Mykeels.CSharpRepl;
@@ -91,6 +91,19 @@ You can add your own ScriptGlobals by adding a static class with static methods 
 ```csharp
 "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;"
 ```
+
+## MCP Server
+
+You can also launch a MCP server that can be used to:
+
+- list members of the ScriptGlobals class
+- invoke arbitrary C# code, written with the ScriptGlobals class as the globals context
+
+```csharp
+await McpServer.Run(typeof(ScriptGlobals));
+```
+
+Such an MCP server can be used by a tool like [Cursor](https://www.cursor.com/) to give Cursor Chat the ability to execute C# code.
 
 ## Features
 
