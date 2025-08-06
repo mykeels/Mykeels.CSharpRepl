@@ -43,7 +43,7 @@ jobs:
         VERSION=$(grep -oP '<Version>\K[^<]+' Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj)
         
         IFS='.' read -r major minor patch <<< "$VERSION"
-        NEW_VERSION="$major.$minor.$((patch + 1))"
+        VERSION="$major.$minor.$((patch + 1))"
         if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
           NEW_VERSION="${VERSION}"
         else
