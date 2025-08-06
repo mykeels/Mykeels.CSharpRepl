@@ -104,6 +104,7 @@ public sealed class Configuration
                 .ToArray()
         )
         .Concat(ReferenceManager.GetReferencePaths())
+        .Where(r => !r.Contains("Anonymously Hosted DynamicMethods Assembly.dll"))
         .ToHashSet();
         Usings = (usings?.ToHashSet() ?? []).Concat([
             "System",
