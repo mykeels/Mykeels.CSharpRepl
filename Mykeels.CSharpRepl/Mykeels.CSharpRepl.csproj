@@ -26,7 +26,7 @@
     <PackageReference Include="ModelContextProtocol" Version="0.1.0-preview.12" />
     <PackageReference Include="PrettyPrompt" Version="4.1.1" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
-    <PackageReference Include="System.IO.Abstractions" Version="21.1.3" />
+    <PackageReference Include="System.IO.Abstractions" Version="22.0.14" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.0" />
   </ItemGroup>
 
