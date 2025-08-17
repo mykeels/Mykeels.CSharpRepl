@@ -73,6 +73,7 @@ public sealed class Configuration
 
     public Configuration(
         string[]? references = null,
+        Func<IEnumerable<string>, IEnumerable<string>>? transformReferences = null,
         string[]? usings = null,
         string? framework = null,
         bool trace = false,
@@ -97,14 +98,17 @@ public sealed class Configuration
         string applicationName = "Mykeels.CSharpRepl"
     )
     {
-        References = (references?.ToHashSet() ?? []).Concat(
-            AppDomain
-                .CurrentDomain.GetAssemblies()
-                .Select(a => $"{a.GetName().Name}.dll")
-                .ToArray()
+        transformReferences ??= refs => refs;
+        References = transformReferences.Invoke(
+            (references?.ToHashSet() ?? []).Concat(
+                AppDomain
+                    .CurrentDomain.GetAssemblies()
+                    .Select(a => $"{a.GetName().Name}.dll")
+                    .ToArray()
+            )
+            .Concat(ReferenceManager.GetReferencePaths())
+            .Where(r => !r.Contains("Anonymously Hosted DynamicMethods Assembly.dll"))
         )
-        .Concat(ReferenceManager.GetReferencePaths())
-        .Where(r => !r.Contains("Anonymously Hosted DynamicMethods Assembly.dll"))
         .ToHashSet();
         Usings = (usings?.ToHashSet() ?? []).Concat([
             "System",
