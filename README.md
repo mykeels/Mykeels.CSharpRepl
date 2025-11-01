@@ -4,6 +4,8 @@ This library is a stripped-down, plug-n-play version of [CSharpRepl.Services](ht
 
 ## Installation
 
+Copy the [nuget.config](nuget.config) file to your project directory. This is necessary to ensure that the Microsoft.SymbolStore package can be found.
+
 ```bash
 dotnet add package Mykeels.CSharpRepl
 ```
