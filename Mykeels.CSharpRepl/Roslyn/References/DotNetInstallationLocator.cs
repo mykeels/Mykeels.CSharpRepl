@@ -31,7 +31,7 @@ internal sealed class DotNetInstallationLocator
             logger: logger,
             io: new FileSystem(),
             // a path like C:\Program Files\dotnet
-            dotnetRuntimePath: Path.GetFullPath(
+            dotnetRuntimePath: Environment.GetEnvironmentVariable("DOTNET_ROOT") ?? Path.GetFullPath(
                 Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "../../../")
             ),
             // a path like C:\Users\username
