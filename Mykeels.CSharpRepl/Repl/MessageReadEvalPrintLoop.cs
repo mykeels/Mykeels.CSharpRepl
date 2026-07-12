@@ -1,0 +1,136 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CSharpRepl.Services;
+using CSharpRepl.Services.Roslyn;
+using CSharpRepl.Services.Roslyn.Formatting;
+
+namespace Mykeels.CSharpRepl;
+
+/// <summary>
+/// Read/eval/print loop for message-based consoles (<see cref="IConsoleEx.IsInteractive"/> is
+/// <see langword="false"/>) — e.g. Slack, where input only ever arrives as a whole submitted message rather
+/// than key-by-key. Unlike <see cref="ReadEvalPrintLoop"/>, this does not use <see cref="PrettyPrompt.Prompt"/>,
+/// since there's no notion of live, character-by-character editing over a message transport.
+/// </summary>
+internal sealed class MessageReadEvalPrintLoop
+{
+    private readonly IConsoleEx console;
+    private readonly RoslynServices roslyn;
+
+    public MessageReadEvalPrintLoop(IConsoleEx console, RoslynServices roslyn)
+    {
+        this.console = console;
+        this.roslyn = roslyn;
+    }
+
+    public async Task RunAsync(Configuration config, Action<RoslynServices>? onLoad = null)
+    {
+        console.WriteLine($"Welcome to the {config.ApplicationName} REPL (Read Eval Print Loop)!");
+        console.WriteLine("Send C# expressions and statements as messages to evaluate them.");
+        console.WriteLine($"Send {Help} to learn more, or {Exit} to end this session.");
+        console.WriteLine(string.Empty);
+        await FlushAsync().ConfigureAwait(false);
+
+        await ReadEvalPrintLoop.Preload(roslyn, console, config).ConfigureAwait(false);
+        await FlushAsync().ConfigureAwait(false);
+
+        onLoad?.Invoke(roslyn);
+
+        while (true)
+        {
+            var message = await ReadLineAsync(CancellationToken.None).ConfigureAwait(false);
+            if (message is null)
+            {
+                break;
+            }
+
+            var commandText = message.Trim();
+            if (commandText.Length == 0)
+            {
+                continue;
+            }
+
+            var lowerCommandText = commandText.ToLowerInvariant();
+
+            if (lowerCommandText == "exit")
+            {
+                break;
+            }
+            if (lowerCommandText == "clear")
+            {
+                console.WriteLine("`clear` is not applicable in a message-based session.");
+                await FlushAsync().ConfigureAwait(false);
+                continue;
+            }
+            if (new[] { "help", "#help", "?" }.Contains(lowerCommandText))
+            {
+                PrintHelp();
+                await FlushAsync().ConfigureAwait(false);
+                continue;
+            }
+
+            var result = await roslyn
+                .EvaluateAsync(commandText, config.LoadScriptArgs, CancellationToken.None)
+                .ConfigureAwait(false);
+
+            // Deliberately omit commandText here: when it's non-empty and config.LogSuccess is set (the
+            // default), PrintAsync routes the result to Configuration.LogSuccess/JsonLogger instead of to
+            // `console` — and JsonLogger writes straight to the real process Console, not to whichever
+            // IConsoleEx is in play. That's fine for a real terminal (same underlying console either way),
+            // but silently drops output for a message-based console like Slack. Passing null here keeps
+            // PrintAsync on the `console.Write(formatted)` path so results always reach this loop's console.
+            await ReadEvalPrintLoop
+                .PrintAsync(roslyn, console, result, Level.FirstSimple)
+                .ConfigureAwait(false);
+            await FlushAsync().ConfigureAwait(false);
+        }
+
+        await FlushAsync().ConfigureAwait(false);
+    }
+
+    private Task<string?> ReadLineAsync(CancellationToken cancellationToken)
+    {
+        if (console is IAsyncLineConsole asyncConsole)
+        {
+            return asyncConsole.ReadLineAsync(cancellationToken);
+        }
+
+        // Fall back to a dedicated thread rather than blocking a thread-pool thread indefinitely.
+        return Task.Factory.StartNew(
+            () => console.ReadLine(),
+            cancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default
+        );
+    }
+
+    private Task FlushAsync()
+    {
+        return console is IAsyncLineConsole asyncConsole
+            ? asyncConsole.FlushAsync(CancellationToken.None)
+            : Task.CompletedTask;
+    }
+
+    private void PrintHelp()
+    {
+        console.WriteLine(
+            $"""
+Send C# code as a message and it will be evaluated and the result sent back.
+
+Global Variables:
+  - ScriptGlobals: All global variables and services are static properties of the ScriptGlobals class.
+
+Send {Exit} to end this session.
+"""
+        );
+    }
+
+    private static string Help => "\"help\"";
+    private static string Exit => "\"exit\"";
+}

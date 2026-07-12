@@ -145,7 +145,7 @@ internal sealed class ReadEvalPrintLoop
         }
     }
 
-    private static async Task PrintAsync(
+    internal static async Task PrintAsync(
         RoslynServices roslyn,
         IConsoleEx console,
         EvaluationResult result,
