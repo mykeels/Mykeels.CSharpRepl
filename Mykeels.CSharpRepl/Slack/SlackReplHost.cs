@@ -27,6 +27,7 @@ public sealed class SlackReplHost
     private readonly Configuration? config;
     private readonly List<string> commands;
     private readonly Action<RoslynServices>? onLoad;
+    private readonly Action<string> log;
     private readonly ConcurrentDictionary<(string ChannelId, string ThreadTs), SlackReplSession> sessions = new();
     private string? botUserId;
 
@@ -49,6 +50,7 @@ public sealed class SlackReplHost
         this.config = config;
         this.commands = commands ?? [];
         this.onLoad = onLoad;
+        log = options.Log;
     }
 
     /// <summary>
@@ -81,6 +83,7 @@ public sealed class SlackReplHost
     {
         var identity = await api.Auth.Test(cancellationToken).ConfigureAwait(false);
         botUserId = identity.UserId;
+        log($"connected as {identity.User} ({botUserId}), listening for {options.SlashCommand}");
 
         if (options.IdleTimeout is { } idleTimeout)
         {
@@ -89,6 +92,19 @@ public sealed class SlackReplHost
         }
 
         await socketModeClient.Connect(new SocketModeConnectionOptions(), cancellationToken).ConfigureAwait(false);
+
+        // Connect() establishes the connection and returns once it's up — it doesn't block for the
+        // connection's lifetime, and the socket keeps running in the background via SlackNet's own
+        // handling. Block here until cancelled so the host process doesn't just exit right after connecting.
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            log("cancellation requested, disconnecting");
+            socketModeClient.Disconnect();
+        }
     }
 
     /// <summary>Test seam — production code has no need to inspect open sessions from the outside.</summary>
@@ -100,8 +116,11 @@ public sealed class SlackReplHost
 
     internal Task<SlashCommandResponse> HandleSlashCommand(SlashCommand command)
     {
+        log($"{options.SlashCommand} from user={command.UserId} channel={command.ChannelId}");
+
         if (!authorizer.CanStartSession(command.UserId, command.ChannelId))
         {
+            log($"denied: user={command.UserId} channel={command.ChannelId} is not authorized to start a session");
             return Task.FromResult(
                 new SlashCommandResponse
                 {
@@ -126,42 +145,68 @@ public sealed class SlackReplHost
 
     private async Task StartSessionAsync(string channelId, string userId)
     {
-        var started = await api
-            .Chat.PostMessage(
-                new Message
-                {
-                    Channel = channelId,
-                    Text =
-                        $":computer: New C# REPL session started by <@{userId}>. Reply in this thread to evaluate code; send `exit` to end the session.",
-                },
-                CancellationToken.None
-            )
-            .ConfigureAwait(false);
-
-        var threadTs = started.Ts;
-        var consoleEx = new SlackConsoleEx(api, channelId, threadTs);
-        var key = (channelId, threadTs);
-
-        var replTask = Task.Factory
-            .StartNew(
-                () => Repl.Run(config, commands, onLoad, consoleEx),
-                CancellationToken.None,
-                TaskCreationOptions.LongRunning,
-                TaskScheduler.Default
-            )
-            .Unwrap();
-
-        sessions[key] = new SlackReplSession
+        // This runs fire-and-forget from HandleSlashCommand (see the comment there), so any exception here
+        // would otherwise vanish silently instead of surfacing anywhere — log it, and let the user know in
+        // Slack too, so a bad channel/scope/token doesn't look like the bot just did nothing.
+        try
         {
-            ChannelId = channelId,
-            ThreadTs = threadTs,
-            OwnerUserId = userId,
-            Console = consoleEx,
-            ReplTask = replTask,
-        };
+            var started = await api
+                .Chat.PostMessage(
+                    new Message
+                    {
+                        Channel = channelId,
+                        Text =
+                            $":computer: New C# REPL session started by <@{userId}>. Reply in this thread to evaluate code; send `exit` to end the session.",
+                    },
+                    CancellationToken.None
+                )
+                .ConfigureAwait(false);
 
-        // Deliberately not awaited: runs in the background once the session's Repl.Run task finishes.
-        _ = OnSessionEndedAsync(key, replTask);
+            var threadTs = started.Ts;
+            var consoleEx = new SlackConsoleEx(api, channelId, threadTs, log);
+            var key = (channelId, threadTs);
+            log($"session started: channel={channelId} thread={threadTs} owner={userId}");
+
+            var replTask = Task.Factory
+                .StartNew(
+                    () => Repl.Run(config, commands, onLoad, consoleEx),
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default
+                )
+                .Unwrap();
+
+            sessions[key] = new SlackReplSession
+            {
+                ChannelId = channelId,
+                ThreadTs = threadTs,
+                OwnerUserId = userId,
+                Console = consoleEx,
+                ReplTask = replTask,
+            };
+
+            // Deliberately not awaited: runs in the background once the session's Repl.Run task finishes.
+            _ = OnSessionEndedAsync(key, replTask);
+        }
+        catch (Exception exception)
+        {
+            log($"failed to start session: channel={channelId} owner={userId}: {exception}");
+            try
+            {
+                await api
+                    .Chat.PostEphemeral(
+                        userId,
+                        new Message { Channel = channelId, Text = $":warning: Failed to start REPL session: {exception.Message}" },
+                        CancellationToken.None
+                    )
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // Best-effort notice — if this also fails (e.g. same permission problem), the log line above is
+                // the fallback, not a second silent failure.
+            }
+        }
     }
 
     private async Task OnSessionEndedAsync((string ChannelId, string ThreadTs) key, Task replTask)
@@ -180,6 +225,8 @@ public sealed class SlackReplHost
         {
             sessions.TryRemove(key, out _);
         }
+
+        log($"session ended: channel={key.ChannelId} thread={key.ThreadTs} ({closingText})");
 
         await api
             .Chat.PostMessage(
@@ -200,19 +247,25 @@ public sealed class SlackReplHost
         // clients where that's not populated. Either way, don't feed the REPL's own output back into itself.
         if (message.User is null || message.User == botUserId || message.BotId is not null)
         {
+            log($"ignored: user={message.User} channel={message.Channel} thread={message.ThreadTs} botId={message.BotId}");
             return Task.CompletedTask;
         }
 
         var threadTs = message.ThreadTs ?? message.Ts;
         if (!sessions.TryGetValue((message.Channel, threadTs), out var session))
         {
+            log($"ignored: user={message.User} channel={message.Channel} thread={threadTs} not found in sessions");
             return Task.CompletedTask;
         }
 
         if (!authorizer.CanReply(message.User, message.Channel, session.OwnerUserId))
         {
+            log(
+                $"denied: user={message.User} channel={message.Channel} thread={threadTs} is not authorized to reply in this session"
+            );
             return PostUnauthorizedReplyNoticeAsync(message.Channel, threadTs);
         }
+        log($"received: user={message.User} channel={message.Channel} thread={threadTs} text={message.Text}");
 
         session.Touch();
         session.Console.Inbound.TryWrite(message.Text ?? string.Empty);
@@ -244,6 +297,7 @@ public sealed class SlackReplHost
             {
                 if (now - session.LastActivityUtc > idleTimeout)
                 {
+                    log($"idle timeout: channel={session.ChannelId} thread={session.ThreadTs}");
                     session.Console.Inbound.Complete();
                 }
             }

@@ -27,19 +27,24 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
     /// <summary>Slack's per-message character limit, minus headroom for the surrounding code-fence.</summary>
     private const int MaxMessageLength = 39_000;
 
+    /// <summary>How much of a line to include in a log message before truncating it for readability.</summary>
+    private const int LogPreviewLength = 300;
+
     private readonly ISlackApiClient slack;
     private readonly string channel;
     private readonly string threadTs;
+    private readonly Action<string> log;
     private readonly Channel<string> inbound;
     private readonly StringBuilder buffer = new();
     private readonly IAnsiConsole ansiConsole;
     private readonly object bufferLock = new();
 
-    public SlackConsoleEx(ISlackApiClient slack, string channel, string threadTs)
+    public SlackConsoleEx(ISlackApiClient slack, string channel, string threadTs, Action<string>? log = null)
     {
         this.slack = slack;
         this.channel = channel;
         this.threadTs = threadTs;
+        this.log = log ?? (_ => { });
         inbound = SystemChannel.CreateUnbounded<string>();
         ansiConsole = AnsiConsole.Create(
             new AnsiConsoleSettings
@@ -82,14 +87,19 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
 
     public async Task<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
+        string? line;
         try
         {
-            return await inbound.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            line = await inbound.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
+            log($"[{channel}/{threadTs}] session closed, no more input");
             return null;
         }
+
+        log($"[{channel}/{threadTs}] << {Preview(line)}");
+        return line;
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)
@@ -116,6 +126,8 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
             text = $"{text[..MaxMessageLength]}\n... (truncated, {hiddenCharacters} more characters)";
         }
 
+        log($"[{channel}/{threadTs}] >> {Preview(text)}");
+
         await slack
             .Chat.PostMessage(
                 new Message { Channel = channel, ThreadTs = threadTs, Text = $"```{text}```" },
@@ -123,4 +135,7 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
             )
             .ConfigureAwait(false);
     }
+
+    private static string Preview(string text) =>
+        text.Length > LogPreviewLength ? $"{text[..LogPreviewLength]}... ({text.Length} chars)" : text;
 }

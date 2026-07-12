@@ -50,6 +50,14 @@ public sealed class SlackReplOptions
     /// alive forever. <see langword="null"/> (the default) means sessions never time out on their own.
     /// </summary>
     public TimeSpan? IdleTimeout { get; init; }
+
+    /// <summary>
+    /// Called with a line of text for every significant event as sessions progress: slash commands received,
+    /// authorization decisions, messages routed into a session, output posted back to Slack, and session
+    /// start/end. Defaults to writing to the console; pass <c>_ => { }</c> to silence it, or redirect it to
+    /// your own logging.
+    /// </summary>
+    public Action<string> Log { get; init; } = message => Console.WriteLine($"[SlackRepl] {message}");
 }
 
 public readonly record struct SlackAuthorizationContext(string UserId, string ChannelId);

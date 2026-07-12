@@ -11,6 +11,7 @@ public class SlackReplHostTests
 {
     private ISlackApiClient slack = null!;
     private IChatApi chat = null!;
+    private List<string> logLines = null!;
 
     [SetUp]
     public void Setup()
@@ -20,16 +21,18 @@ public class SlackReplHostTests
         slack.Chat.Returns(chat);
         chat.PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PostMessageResponse { Ts = "100.001" }));
+        logLines = [];
     }
 
     private SlackReplHost CreateHost(SlackReplOptions options) => new(options, slack, config: new Configuration());
 
-    private static SlackReplOptions OptionsAllowing(string userId) =>
+    private SlackReplOptions OptionsAllowing(string userId) =>
         new()
         {
             BotToken = "xoxb-test",
             AppToken = "xapp-test",
             AllowedUserIds = [userId],
+            Log = logLines.Add,
         };
 
     private static async Task<SlackReplSession> WaitForSessionAsync(SlackReplHost host, string channelId, string threadTs)
@@ -65,6 +68,8 @@ public class SlackReplHostTests
         await chat.Received(1)
             .PostMessage(Arg.Is<Message>(m => m.Channel == "C1" && m.ThreadTs == null), Arg.Any<CancellationToken>());
 
+        Assert.That(logLines, Has.Some.Contain("session started").And.Some.Contain("C1"));
+
         await session.Console.Inbound.WriteAsync("exit");
         await session.ReplTask.WaitAsync(TimeSpan.FromSeconds(10));
     }
@@ -86,6 +91,7 @@ public class SlackReplHostTests
         Assert.That(response.Message.Text, Does.Contain("not authorized"));
         Assert.That(host.SessionCount, Is.EqualTo(0));
         await chat.DidNotReceive().PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>());
+        Assert.That(logLines, Has.Some.Contain("denied"));
     }
 
     [Test]

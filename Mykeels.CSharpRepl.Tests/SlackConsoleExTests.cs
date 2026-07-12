@@ -10,6 +10,7 @@ public class SlackConsoleExTests
     private ISlackApiClient slack = null!;
     private IChatApi chat = null!;
     private SlackConsoleEx console = null!;
+    private List<string> logLines = null!;
 
     // IConsoleEx.WriteLine etc. are default interface members, so they're only visible through the
     // interface, not through a variable typed as the concrete SlackConsoleEx.
@@ -24,7 +25,8 @@ public class SlackConsoleExTests
         chat.PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PostMessageResponse()));
 
-        console = new SlackConsoleEx(slack, channel: "C123", threadTs: "111.222");
+        logLines = [];
+        console = new SlackConsoleEx(slack, channel: "C123", threadTs: "111.222", log: logLines.Add);
     }
 
     [Test]
@@ -105,5 +107,25 @@ public class SlackConsoleExTests
     public void IsInteractive_IsFalse()
     {
         Assert.That(console.IsInteractive, Is.False);
+    }
+
+    [Test]
+    public async Task FlushAsync_LogsTheOutgoingMessage()
+    {
+        AsConsoleEx.WriteLine("hello from the repl");
+
+        await console.FlushAsync(CancellationToken.None);
+
+        Assert.That(logLines, Has.Some.Contain("hello from the repl"));
+    }
+
+    [Test]
+    public async Task ReadLineAsync_LogsTheIncomingMessage()
+    {
+        await console.Inbound.WriteAsync("1 + 1");
+
+        await console.ReadLineAsync(CancellationToken.None);
+
+        Assert.That(logLines, Has.Some.Contain("1 + 1"));
     }
 }
