@@ -107,6 +107,48 @@ await McpServer.Run(typeof(ScriptGlobals));
 
 Such an MCP server can be used by a tool like [Cursor](https://www.cursor.com/) to give Cursor Chat the ability to execute C# code.
 
+## Slack Integration
+
+You can host the REPL over Slack instead of (or as well as) a terminal: a user runs a slash command in Slack, the bot starts a thread, and messages sent in that thread are evaluated as REPL input, with results/errors posted back as replies. Multiple threads can each run their own independent session.
+
+### 1. Create the Slack app
+
+1. Create an app at [api.slack.com/apps](https://api.slack.com/apps).
+2. Under **Socket Mode**, enable it and generate an app-level token with the `connections:write` scope (starts with `xapp-`).
+3. Under **OAuth & Permissions**, add the `chat:write` and `commands` bot token scopes, then install the app to your workspace to get a bot token (starts with `xoxb-`).
+4. Under **Slash Commands**, create a command (e.g. `/mykeels-csharp-repl`) — with Socket Mode enabled you don't need to fill in a Request URL.
+5. Under **Event Subscriptions**, enable events and subscribe to the `message.channels` bot event (or `message.groups`/`message.im` too, depending on where sessions should be usable) so the bot receives thread replies.
+6. Invite the bot to whichever channels it should work in.
+
+### 2. Run the host
+
+```csharp
+using Mykeels.CSharpRepl;
+
+await SlackReplHost.Run(
+    new SlackReplOptions
+    {
+        BotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN")!,
+        AppToken = Environment.GetEnvironmentVariable("SLACK_APP_TOKEN")!,
+        SlashCommand = "/mykeels-csharp-repl", // must match what you registered above
+        AllowedChannelIds = ["C0123456789"], // or AllowedUserIds — at least one is required, see below
+    }
+);
+```
+
+`SlackReplHost.Run` connects over Socket Mode and runs until cancelled (pass a `CancellationToken` to stop it), starting a new `Repl.Run` session — with its own `RoslynServices`, independent of any other open session — for every slash command invocation.
+
+### 3. Authorization
+
+At least one of `AllowedUserIds` or `AllowedChannelIds` must be set — `SlackReplHost` refuses to start otherwise, since anyone able to run the slash command would otherwise get a REPL with the same code-execution privileges as the host process:
+
+- `AllowedUserIds` / `AllowedChannelIds`: `HashSet<string>?` of Slack user/channel IDs allowed to start and use sessions. Leaving one unset doesn't restrict by it — e.g. setting only `AllowedChannelIds` allows any user in those channels.
+- `RestrictRepliesToSessionOwner` (default `true`): only the user who ran the slash command can send messages into their own session's thread.
+- `IsAuthorized`: optional `Func<SlackAuthorizationContext, bool>` for additional checks (e.g. against an external ACL), evaluated in addition to the allowlists above, not instead of them.
+- `IdleTimeout`: optional `TimeSpan` — a session thread with no activity for this long is closed automatically, so an abandoned thread doesn't hold a `RoslynServices` alive forever.
+
+Run `dotnet run -- slack` in `Mykeels.CSharpRepl.Sample` (with `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, and optionally `SLACK_ALLOWED_CHANNEL_IDS` set as a comma-separated list) to try it.
+
 ## Features
 
 - **Syntax Highlighting**: Code is colorized for better readability
