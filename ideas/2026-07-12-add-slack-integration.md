@@ -144,7 +144,8 @@ public readonly record struct SlackAuthorizationContext(string UserId, string Ch
 
 ## Dependencies
 
-- Add `SlackNet` NuGet package to `Mykeels.CSharpRepl.csproj`.
+- `SlackNet` (0.17.10) added to `Mykeels.CSharpRepl.csproj` — `SlackConsoleEx` depends only on `ISlackApiClient`/`IChatApi`/`Message`, so phase 3's Socket Mode client (`ISlackSocketModeClient`) is a separate, still-unused piece of the same package.
+- `NSubstitute` (6.0.0) added to `Mykeels.CSharpRepl.Tests.csproj` only (not shipped in the library) — `ISlackApiClient` has ~40 sub-API properties, so hand-writing a fake would be mostly boilerplate; NSubstitute lets `SlackConsoleExTests` fake just `Chat.PostMessage` without a real Slack call.
 - Requires a Slack app configured with: Socket Mode enabled, an app-level token (`connections:write` scope) for the socket, a bot token with `chat:write` and `commands` scopes, and the `/new-csharp-repl` slash command registered pointing at Socket Mode (no Request URL needed).
 
 ## Sample usage (mirrors `Mykeels.CSharpRepl.Sample/Program.cs`)
