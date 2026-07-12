@@ -113,12 +113,60 @@ You can host the REPL over Slack instead of (or as well as) a terminal: a user r
 
 ### 1. Create the Slack app
 
-1. Create an app at [api.slack.com/apps](https://api.slack.com/apps).
-2. Under **Socket Mode**, enable it and generate an app-level token with the `connections:write` scope (starts with `xapp-`).
-3. Under **OAuth & Permissions**, add the `chat:write` and `commands` bot token scopes, then install the app to your workspace to get a bot token (starts with `xoxb-`).
-4. Under **Slash Commands**, create a command (e.g. `/mykeels-csharp-repl`) — with Socket Mode enabled you don't need to fill in a Request URL.
-5. Under **Event Subscriptions**, enable events and subscribe to the `message.channels` bot event (or `message.groups`/`message.im` too, depending on where sessions should be usable) so the bot receives thread replies.
-6. Invite the bot to whichever channels it should work in.
+The easiest way is from a manifest — go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From an app manifest**, and paste in:
+
+```json
+{
+  "display_information": {
+    "name": "Mykeels C# REPL",
+    "description": "Run a C# REPL session in a Slack thread",
+    "background_color": "#2c2d30"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "mykeels-csharp-repl",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/mykeels-csharp-repl",
+        "description": "Start a new C# REPL session in a thread",
+        "usage_hint": "",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "commands", "channels:history", "groups:history", "im:history"]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["message.channels", "message.groups", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
+```
+
+Notes on the manifest:
+
+- `interactivity.is_enabled: true` is required even though this app has no buttons/modals — Slack routes slash-command payloads through the interactivity pipeline when Socket Mode is on, so it won't deliver them without this.
+- Each `message.*` event needs its matching `*:history` scope to read message content in that conversation type: `message.channels` → `channels:history`, `message.groups` → `groups:history`, `message.im` → `im:history`. If you only need sessions in public channels, drop `message.groups`/`message.im` and their scopes.
+
+A manifest can't do everything, though — after creating the app:
+
+1. **Generate an app-level token.** Under **Basic Information → App-Level Tokens**, create one with the `connections:write` scope (starts with `xapp-`). This is what lets `SlackReplHost` use Socket Mode's WebSocket connection — the bot token alone isn't enough, and there's no way to bake this into the manifest since it's generated per-install.
+2. **Install the app to your workspace.** Under **OAuth & Permissions**, install it to get a bot token (starts with `xoxb-`).
+3. **Invite the bot** to whichever channels it should work in.
+
+(If you'd rather configure it by hand instead of from a manifest: enable Socket Mode; add the bot token scopes above under OAuth & Permissions; create the slash command under Slash Commands — no Request URL needed with Socket Mode; enable Event Subscriptions and subscribe to the `message.*` events you need. Then do the three steps above.)
 
 ### 2. Run the host
 
