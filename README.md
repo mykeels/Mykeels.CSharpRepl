@@ -149,14 +149,14 @@ The easiest way is from a manifest — go to [api.slack.com/apps](https://api.sl
       {
         "command": "/mykeels-csharp-repl",
         "description": "Start a new C# REPL session in a thread",
-        "usage_hint": "",
+        "usage_hint": "new",
         "should_escape": false
       }
     ]
   },
   "oauth_config": {
     "scopes": {
-      "bot": ["chat:write", "commands", "channels:history", "groups:history", "im:history"]
+      "bot": ["chat:write", "commands", "channels:history", "groups:history", "im:history", "files:write"]
     }
   },
   "settings": {
