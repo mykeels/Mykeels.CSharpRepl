@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,16 +19,9 @@ namespace Mykeels.CSharpRepl;
 /// than key-by-key. Unlike <see cref="ReadEvalPrintLoop"/>, this does not use <see cref="PrettyPrompt.Prompt"/>,
 /// since there's no notion of live, character-by-character editing over a message transport.
 /// </summary>
-internal sealed class MessageReadEvalPrintLoop
+internal sealed class MessageReadEvalPrintLoop(IConsoleEx console, RoslynServices roslyn)
 {
-    private readonly IConsoleEx console;
-    private readonly RoslynServices roslyn;
-
-    public MessageReadEvalPrintLoop(IConsoleEx console, RoslynServices roslyn)
-    {
-        this.console = console;
-        this.roslyn = roslyn;
-    }
+    private static readonly string[] HelpCommands = ["help", "#help", "?"];
 
     public async Task RunAsync(Configuration config, Action<RoslynServices>? onLoad = null)
     {
@@ -70,9 +62,9 @@ internal sealed class MessageReadEvalPrintLoop
                 await FlushAsync().ConfigureAwait(false);
                 continue;
             }
-            if (new[] { "help", "#help", "?" }.Contains(lowerCommandText))
+            if (HelpCommands.Contains(lowerCommandText))
             {
-                PrintHelp();
+                PrintHelp(config.GlobalsType);
                 await FlushAsync().ConfigureAwait(false);
                 continue;
             }
@@ -125,7 +117,7 @@ internal sealed class MessageReadEvalPrintLoop
 
         // Fall back to a dedicated thread rather than blocking a thread-pool thread indefinitely.
         return Task.Factory.StartNew(
-            () => console.ReadLine(),
+            console.ReadLine,
             cancellationToken,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default
@@ -139,7 +131,7 @@ internal sealed class MessageReadEvalPrintLoop
             : Task.CompletedTask;
     }
 
-    private void PrintHelp()
+    private void PrintHelp(Type? globalsType)
     {
         console.WriteLine(
             $"""
@@ -151,6 +143,16 @@ Global Variables:
 Send {Exit} to end this session.
 """
         );
+
+        if (globalsType is not null)
+        {
+            console.WriteLine();
+            console.WriteLine($"Available members ({globalsType.FullName}):");
+            foreach (var component in Introspector.ListComponents(globalsType))
+            {
+                console.WriteLine($"  - {component}");
+            }
+        }
     }
 
     private static string Help => "\"help\"";

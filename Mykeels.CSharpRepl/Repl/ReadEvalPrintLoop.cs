@@ -234,6 +234,16 @@ Run [green]--help[/] at the command line to view these options.
             )
         );
 
+        if (config.GlobalsType is { } globalsType)
+        {
+            console.WriteLine();
+            console.WriteLine($"Available members ({globalsType.FullName}):");
+            foreach (var component in Introspector.ListComponents(globalsType))
+            {
+                console.WriteLine($"  - {component}");
+            }
+        }
+
         static string KeyPressPatternToString(IEnumerable<KeyPressPattern> patterns)
         {
             var values = patterns.ToList();

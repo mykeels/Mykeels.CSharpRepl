@@ -12,6 +12,7 @@ var configuration = new ConfigurationBuilder()
 if (args.Contains("repl"))
 {
     await Repl.Run(
+        config: new Configuration(globalsType: typeof(ScriptGlobals)),
         commands: [
             "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;",
             "using Mykeels.CSharpRepl.Sample;"
@@ -30,6 +31,7 @@ else if (args.Contains("slack"))
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToHashSet(),
         },
+        config: new Configuration(globalsType: typeof(ScriptGlobals)),
         commands: [
             "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;",
             "using Mykeels.CSharpRepl.Sample;"

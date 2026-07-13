@@ -42,6 +42,34 @@ public class MessageReadEvalPrintLoopTests
         Assert.That(console.Output, Does.Contain("\"A\": 1"));
         Assert.That(console.Output, Does.Contain("{" + Environment.NewLine));
     }
+
+    [Test]
+    public async Task Run_HelpCommand_ListsGlobalsTypeMembersWithTypeInfo_WhenConfigured()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("help");
+        console.Enqueue("exit");
+
+        await Repl.Run(
+            config: new Configuration(globalsType: typeof(ScriptGlobals)),
+            console: console
+        );
+
+        Assert.That(console.Output, Does.Contain(typeof(ScriptGlobals).FullName!));
+        Assert.That(console.Output, Does.Contain("void Print(object obj)"));
+    }
+
+    [Test]
+    public async Task Run_HelpCommand_OmitsMembersSection_WhenGlobalsTypeNotConfigured()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("help");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Not.Contain("Available members"));
+    }
 }
 
 file sealed class FakeConsoleEx : IConsoleEx, IAsyncLineConsole
