@@ -64,7 +64,8 @@ internal sealed class MessageReadEvalPrintLoop(IConsoleEx console, RoslynService
             }
             if (HelpCommands.Contains(lowerCommandText))
             {
-                PrintHelp(config.GlobalsType);
+                var scriptGlobalsTypes = await roslyn.GetScriptGlobalsTypesAsync().ConfigureAwait(false);
+                PrintHelp(scriptGlobalsTypes);
                 await FlushAsync().ConfigureAwait(false);
                 continue;
             }
@@ -131,7 +132,7 @@ internal sealed class MessageReadEvalPrintLoop(IConsoleEx console, RoslynService
             : Task.CompletedTask;
     }
 
-    private void PrintHelp(Type? globalsType)
+    private void PrintHelp(IReadOnlyList<Type> scriptGlobalsTypes)
     {
         console.WriteLine(
             $"""
@@ -144,7 +145,7 @@ Send {Exit} to end this session.
 """
         );
 
-        if (globalsType is not null)
+        foreach (var globalsType in scriptGlobalsTypes)
         {
             console.WriteLine();
             console.WriteLine($"Available members ({globalsType.FullName}):");

@@ -249,6 +249,32 @@ public sealed partial class RoslynServices
         return await symbolExplorer.LookupSymbolAtPosition(text, caret);
     }
 
+    /// <summary>
+    /// Finds types matching the "*ScriptGlobals" naming convention that are currently in scope via a
+    /// <c>using static</c> directive typed into this session (e.g. <c>using static MyApp.ScriptGlobals;</c>).
+    /// Used by the <c>help</c> command to list their members — see <see cref="Introspector.ListComponents"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<Type>> GetScriptGlobalsTypesAsync()
+    {
+        await Initialization.ConfigureAwait(false);
+
+        return referenceService
+            .Usings.Where(u => u.StaticKeyword.IsKind(SyntaxKind.StaticKeyword))
+            .Select(u => u.Name?.ToString())
+            .WhereNotNull()
+            .Distinct()
+            .Select(ResolveType)
+            .WhereNotNull()
+            .Where(t => t.Name.EndsWith("ScriptGlobals", StringComparison.Ordinal))
+            .ToList();
+    }
+
+    private static Type? ResolveType(string typeName) =>
+        AppDomain
+            .CurrentDomain.GetAssemblies()
+            .Select(a => a.GetType(typeName))
+            .FirstOrDefault(t => t is not null);
+
     public AnsiColor ToColor(string classification) => highlighter.GetAnsiColor(classification);
 
     public async Task<IReadOnlyCollection<HighlightedSpan>> SyntaxHighlightAsync(string text)

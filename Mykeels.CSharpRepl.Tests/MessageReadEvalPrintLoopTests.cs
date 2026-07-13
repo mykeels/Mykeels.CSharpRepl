@@ -44,25 +44,36 @@ public class MessageReadEvalPrintLoopTests
     }
 
     [Test]
-    public async Task Run_HelpCommand_ListsGlobalsTypeMembersWithTypeInfo_WhenConfigured()
+    public async Task Run_HelpCommand_ListsScriptGlobalsMembersWithTypeInfo_WhenBroughtIntoScopeViaUsingStatic()
     {
         var console = new FakeConsoleEx();
+        console.Enqueue("using static Mykeels.CSharpRepl.Sample.ScriptGlobals;");
         console.Enqueue("help");
         console.Enqueue("exit");
 
-        await Repl.Run(
-            config: new Configuration(globalsType: typeof(ScriptGlobals)),
-            console: console
-        );
+        await Repl.Run(console: console);
 
         Assert.That(console.Output, Does.Contain(typeof(ScriptGlobals).FullName!));
         Assert.That(console.Output, Does.Contain("void Print(object obj)"));
     }
 
     [Test]
-    public async Task Run_HelpCommand_OmitsMembersSection_WhenGlobalsTypeNotConfigured()
+    public async Task Run_HelpCommand_OmitsMembersSection_WhenNoScriptGlobalsTypeInScope()
     {
         var console = new FakeConsoleEx();
+        console.Enqueue("help");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Not.Contain("Available members"));
+    }
+
+    [Test]
+    public async Task Run_HelpCommand_IgnoresUsingStaticTypesNotFollowingTheScriptGlobalsConvention()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("using static System.Math;");
         console.Enqueue("help");
         console.Enqueue("exit");
 

@@ -70,7 +70,8 @@ internal sealed class ReadEvalPrintLoop
                 }
                 if (new[] { "help", "#help", "?" }.Contains(commandText))
                 {
-                    PrintHelp(config.KeyBindings, config.SubmitPromptDetailedKeys);
+                    var scriptGlobalsTypes = await roslyn.GetScriptGlobalsTypesAsync().ConfigureAwait(false);
+                    PrintHelp(config.KeyBindings, config.SubmitPromptDetailedKeys, scriptGlobalsTypes);
                     continue;
                 }
 
@@ -194,7 +195,11 @@ internal sealed class ReadEvalPrintLoop
         }
     }
 
-    private void PrintHelp(KeyBindings keyBindings, KeyPressPatterns submitPromptDetailedKeys)
+    private void PrintHelp(
+        KeyBindings keyBindings,
+        KeyPressPatterns submitPromptDetailedKeys,
+        IReadOnlyList<Type> scriptGlobalsTypes
+    )
     {
         var newLineBindingName = KeyPressPatternToString(keyBindings.NewLine.DefinedPatterns ?? []);
         var submitPromptName = KeyPressPatternToString(
@@ -234,7 +239,7 @@ Run [green]--help[/] at the command line to view these options.
             )
         );
 
-        if (config.GlobalsType is { } globalsType)
+        foreach (var globalsType in scriptGlobalsTypes)
         {
             console.WriteLine();
             console.WriteLine($"Available members ({globalsType.FullName}):");

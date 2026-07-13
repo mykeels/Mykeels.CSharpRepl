@@ -71,14 +71,6 @@ public sealed class Configuration
     public Action<string, Exception, object>? LogError { get; }
     public string ApplicationName { get; }
 
-    /// <summary>
-    /// The type whose public static members (e.g. a "ScriptGlobals" convention class brought into scope via a
-    /// <c>using static</c> command) are listed, with type information, by the <c>help</c> command. Same idea as
-    /// the <c>globalsType</c> passed to <c>McpServer.Run</c> — see <c>Mykeels.CSharpRepl.Introspector.ListComponents</c>.
-    /// <see langword="null"/> (the default) omits that section from <c>help</c>.
-    /// </summary>
-    public Type? GlobalsType { get; }
-
     public Configuration(
         string[]? references = null,
         Func<IEnumerable<string>, IEnumerable<string>>? transformReferences = null,
@@ -103,11 +95,9 @@ public sealed class Configuration
         string? cultureName = null,
         Action<string, object>? logSuccess = null,
         Action<string, Exception, object>? logError = null,
-        string applicationName = "Mykeels.CSharpRepl",
-        Type? globalsType = null
+        string applicationName = "Mykeels.CSharpRepl"
     )
     {
-        GlobalsType = globalsType;
         transformReferences ??= refs => refs;
         References = transformReferences.Invoke(
             (references?.ToHashSet() ?? []).Concat(

@@ -94,6 +94,8 @@ You can add your own ScriptGlobals by adding a static class with static methods 
 "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;"
 ```
 
+Any class named `*ScriptGlobals` that's brought into scope this way — at startup via `commands`, or by the user typing a `using static` statement mid-session — is picked up automatically by the `help` command, which lists its public static members alongside their type information (parameter types, return types, property types). No extra configuration needed; this works the same whether you're in the terminal REPL or a Slack session.
+
 ## MCP Server
 
 You can also launch a MCP server that can be used to:
