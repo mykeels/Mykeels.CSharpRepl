@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Channels;
 using CSharpRepl.Services;
+using Newtonsoft.Json;
 using PrettyPrompt.Consoles;
 using SlackNet;
 using SlackNet.WebApi;
@@ -30,6 +31,12 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
     /// <summary>How much of a line to include in a log message before truncating it for readability.</summary>
     private const int LogPreviewLength = 300;
 
+    /// <summary>
+    /// Output longer than this many lines is uploaded as a Slack snippet (a collapsible, syntax-highlighted
+    /// file) instead of an inline code-block message, so a long result doesn't flood the thread.
+    /// </summary>
+    private const int SnippetLineThreshold = 16;
+
     private readonly ISlackApiClient slack;
     private readonly string channel;
     private readonly string threadTs;
@@ -53,6 +60,10 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
                 ColorSystem = ColorSystemSupport.NoColors,
             }
         );
+        // Spectre wraps text at the console width (80 by default when not a real terminal), which would
+        // mangle indented JSON by breaking lines mid-value. Slack's own UI handles wrapping/scrolling in code
+        // blocks and snippets, so there's no reason for Spectre to pre-wrap on our behalf.
+        ansiConsole.Profile.Width = 4096;
     }
 
     /// <summary>
@@ -120,13 +131,23 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
             return;
         }
 
+        log($"[{channel}/{threadTs}] >> {Preview(text)}");
+
+        if (CountLines(text) > SnippetLineThreshold)
+        {
+            // Snippets aren't subject to Slack's ~40k inline-message limit, so no truncation here.
+            var fileUpload = new FileUpload("result.json", text) { Title = "REPL output", SnippetType = "json" };
+            await slack
+                .Files.Upload(fileUpload, channelId: channel, threadTs: threadTs, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
         if (text.Length > MaxMessageLength)
         {
             var hiddenCharacters = text.Length - MaxMessageLength;
             text = $"{text[..MaxMessageLength]}\n... (truncated, {hiddenCharacters} more characters)";
         }
-
-        log($"[{channel}/{threadTs}] >> {Preview(text)}");
 
         await slack
             .Chat.PostMessage(
@@ -138,4 +159,6 @@ public sealed class SlackConsoleEx : IConsoleEx, IAsyncLineConsole
 
     private static string Preview(string text) =>
         text.Length > LogPreviewLength ? $"{text[..LogPreviewLength]}... ({text.Length} chars)" : text;
+
+    private static int CountLines(string text) => text.Count(c => c == '\n') + 1;
 }

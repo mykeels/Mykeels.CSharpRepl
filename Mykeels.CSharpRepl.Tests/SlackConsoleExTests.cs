@@ -9,6 +9,7 @@ public class SlackConsoleExTests
 {
     private ISlackApiClient slack = null!;
     private IChatApi chat = null!;
+    private IFilesApi files = null!;
     private SlackConsoleEx console = null!;
     private List<string> logLines = null!;
 
@@ -24,6 +25,8 @@ public class SlackConsoleExTests
         slack.Chat.Returns(chat);
         chat.PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PostMessageResponse()));
+        files = Substitute.For<IFilesApi>();
+        slack.Files.Returns(files);
 
         logLines = [];
         console = new SlackConsoleEx(slack, channel: "C123", threadTs: "111.222", log: logLines.Add);
@@ -127,5 +130,37 @@ public class SlackConsoleExTests
         await console.ReadLineAsync(CancellationToken.None);
 
         Assert.That(logLines, Has.Some.Contain("1 + 1"));
+    }
+
+    [Test]
+    public async Task FlushAsync_WithAtMost16Lines_PostsInlineInsteadOfUploading()
+    {
+        // WriteLine appends its own trailing newline, so 15 joined lines + that = 16 total lines buffered.
+        AsConsoleEx.WriteLine(string.Join('\n', Enumerable.Repeat("line", 15)));
+
+        await console.FlushAsync(CancellationToken.None);
+
+        await chat.Received(1).PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>());
+        await files.DidNotReceive().Upload(Arg.Any<FileUpload>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task FlushAsync_WithMoreThan16Lines_UploadsAsASnippetInsteadOfPosting()
+    {
+        // 16 joined lines + WriteLine's own trailing newline = 17 total lines buffered.
+        AsConsoleEx.WriteLine(string.Join('\n', Enumerable.Repeat("line", 16)));
+
+        await console.FlushAsync(CancellationToken.None);
+
+        await chat.DidNotReceive().PostMessage(Arg.Any<Message>(), Arg.Any<CancellationToken>());
+        await files
+            .Received(1)
+            .Upload(
+                Arg.Is<FileUpload>(f => f.SnippetType == "json"),
+                channelId: "C123",
+                threadTs: "111.222",
+                initialComment: Arg.Any<string>(),
+                cancellationToken: Arg.Any<CancellationToken>()
+            );
     }
 }

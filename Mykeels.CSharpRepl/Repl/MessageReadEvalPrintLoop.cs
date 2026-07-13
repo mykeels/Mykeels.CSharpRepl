@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using CSharpRepl.Services;
 using CSharpRepl.Services.Roslyn;
 using CSharpRepl.Services.Roslyn.Formatting;
+using CSharpRepl.Services.Roslyn.Scripting;
+using Newtonsoft.Json;
 
 namespace Mykeels.CSharpRepl;
 
@@ -79,19 +81,39 @@ internal sealed class MessageReadEvalPrintLoop
                 .EvaluateAsync(commandText, config.LoadScriptArgs, CancellationToken.None)
                 .ConfigureAwait(false);
 
-            // Deliberately omit commandText here: when it's non-empty and config.LogSuccess is set (the
-            // default), PrintAsync routes the result to Configuration.LogSuccess/JsonLogger instead of to
-            // `console` — and JsonLogger writes straight to the real process Console, not to whichever
-            // IConsoleEx is in play. That's fine for a real terminal (same underlying console either way),
-            // but silently drops output for a message-based console like Slack. Passing null here keeps
-            // PrintAsync on the `console.Write(formatted)` path so results always reach this loop's console.
-            await ReadEvalPrintLoop
-                .PrintAsync(roslyn, console, result, Level.FirstSimple)
-                .ConfigureAwait(false);
+            await PrintResultAsync(result).ConfigureAwait(false);
             await FlushAsync().ConfigureAwait(false);
         }
 
         await FlushAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Prints a successful evaluation's return value as indented JSON — the most legible, unambiguous way to
+    /// show a value over a message transport with no live syntax highlighting or table rendering, and
+    /// consistent with how this project's <c>JsonLogger</c> already treats results for non-interactive
+    /// consumption elsewhere (just indented here, since that's for a human reading a chat thread, not a log).
+    /// Errors and cancellation still go through the shared, richer <see cref="ReadEvalPrintLoop.PrintAsync"/>.
+    /// </summary>
+    private async Task PrintResultAsync(EvaluationResult result)
+    {
+        if (result is not EvaluationResult.Success success)
+        {
+            // Deliberately omit commandText here: when it's non-empty and config.LogSuccess is set (the
+            // default), PrintAsync would otherwise route output to Configuration.LogSuccess/JsonLogger instead
+            // of `console` — and JsonLogger writes straight to the real process Console, not to whichever
+            // IConsoleEx is in play. That's fine for a real terminal (same underlying console either way), but
+            // silently drops output for a message-based console like Slack.
+            await ReadEvalPrintLoop.PrintAsync(roslyn, console, result, Level.FirstSimple).ConfigureAwait(false);
+            return;
+        }
+
+        if (success.ReturnValue.HasValue)
+        {
+            var json = JsonConvert.SerializeObject(success.ReturnValue.Value, Formatting.Indented);
+            console.WriteLine(json);
+        }
+        console.WriteLine();
     }
 
     private Task<string?> ReadLineAsync(CancellationToken cancellationToken)

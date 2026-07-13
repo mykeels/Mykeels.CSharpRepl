@@ -29,6 +29,19 @@ public class MessageReadEvalPrintLoopTests
         Assert.That(exitCode, Is.EqualTo(0));
         Assert.That(console.Output, Does.Contain("2"));
     }
+
+    [Test]
+    public async Task Run_PrintsSuccessfulResultsAsIndentedJson()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("new { A = 1, B = \"hi\" }");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Contain("\"A\": 1"));
+        Assert.That(console.Output, Does.Contain("{" + Environment.NewLine));
+    }
 }
 
 file sealed class FakeConsoleEx : IConsoleEx, IAsyncLineConsole
