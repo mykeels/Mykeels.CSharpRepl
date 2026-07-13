@@ -43,16 +43,15 @@ public static class Repl
         }
     }
 
-    public static async Task<int> Run(Configuration? config = null, List<string>? commands = null, Action<RoslynServices>? onLoad = null)
+    public static async Task<int> Run(Configuration? config = null, List<string>? commands = null, Action<RoslynServices>? onLoad = null, IConsoleEx? console = null)
     {
         Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;
         config ??= new Configuration();
         commands ??= new List<string>();
         onLoad ??= (roslyn) => { };
+        console ??= new SystemConsoleEx();
 
-        // parse command line input
-        IConsoleEx console = new SystemConsoleEx();
         var appStorage = CreateApplicationStorageDirectory();
 
         SetDefaultCulture(config);
@@ -67,6 +66,23 @@ public static class Repl
         var logger = InitializeLogging(config.Trace);
         var roslyn = new RoslynServices(console, config, logger);
 
+        void OnLoad(RoslynServices roslynServices)
+        {
+            onLoad?.Invoke(roslynServices);
+            foreach (var command in commands)
+            {
+                roslynServices
+                    .EvaluateAsync(command, config.LoadScriptArgs, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        if (!console.IsInteractive)
+        {
+            await new MessageReadEvalPrintLoop(console, roslyn).RunAsync(config, OnLoad).ConfigureAwait(false);
+            return ExitCodes.Success;
+        }
+
         // we're being run interactively, start the prompt
         var (prompt, exitCode) = InitializePrompt(console, appStorage, roslyn, config);
         if (prompt is not null)
@@ -74,15 +90,7 @@ public static class Repl
             try
             {
                 await new ReadEvalPrintLoop(console, roslyn, prompt)
-                    .RunAsync(config, roslyn => {
-                        onLoad?.Invoke(roslyn);
-                        foreach (var command in commands)
-                        {
-                            roslyn
-                                .EvaluateAsync(command, config.LoadScriptArgs, CancellationToken.None)
-                                .ConfigureAwait(false);
-                        }
-                    })
+                    .RunAsync(config, OnLoad)
                     .ConfigureAwait(false);
             }
             finally

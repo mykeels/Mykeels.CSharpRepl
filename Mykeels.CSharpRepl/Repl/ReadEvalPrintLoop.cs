@@ -70,7 +70,14 @@ internal sealed class ReadEvalPrintLoop
                 }
                 if (new[] { "help", "#help", "?" }.Contains(commandText))
                 {
-                    PrintHelp(config.KeyBindings, config.SubmitPromptDetailedKeys);
+                    var scriptGlobalsTypes = await roslyn.GetScriptGlobalsTypesAsync().ConfigureAwait(false);
+                    PrintHelp(config.KeyBindings, config.SubmitPromptDetailedKeys, scriptGlobalsTypes);
+                    continue;
+                }
+                if (TryParseIntrospectionQuery(response.Text.Trim(), out var introspectionQuery))
+                {
+                    await PrintIntrospectionAsync(roslyn, console, introspectionQuery, config.LoadScriptArgs)
+                        .ConfigureAwait(false);
                     continue;
                 }
 
@@ -145,7 +152,7 @@ internal sealed class ReadEvalPrintLoop
         }
     }
 
-    private static async Task PrintAsync(
+    internal static async Task PrintAsync(
         RoslynServices roslyn,
         IConsoleEx console,
         EvaluationResult result,
@@ -194,7 +201,54 @@ internal sealed class ReadEvalPrintLoop
         }
     }
 
-    private void PrintHelp(KeyBindings keyBindings, KeyPressPatterns submitPromptDetailedKeys)
+    /// <summary>
+    /// Recognizes the <c>&lt;query&gt; ?</c> introspection syntax — e.g. <c>DateTime ?</c> or <c>Http ?</c> —
+    /// letting a user explore a type or an already-in-scope value's members. Requires something before the
+    /// <c>?</c> so a bare <c>?</c> still falls through to the regular help alias, and requires the <c>?</c> to
+    /// be the very last character, since no complete C# statement or expression legitimately ends in a lone
+    /// <c>?</c> (ternaries need both branches, null-conditional access needs a follow-up member, etc.) — so
+    /// this can't misfire on real code.
+    /// </summary>
+    internal static bool TryParseIntrospectionQuery(string commandText, out string query)
+    {
+        if (commandText.Length > 1 && commandText[^1] == '?')
+        {
+            query = commandText[..^1].TrimEnd();
+            return query.Length > 0;
+        }
+        query = string.Empty;
+        return false;
+    }
+
+    internal static async Task PrintIntrospectionAsync(
+        RoslynServices roslyn,
+        IConsoleEx console,
+        string query,
+        string[]? args
+    )
+    {
+        var type = await roslyn
+            .ResolveIntrospectionTypeAsync(query, args, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (type is null)
+        {
+            console.WriteLine($"Couldn't resolve '{query}' to a type, or evaluate it to get a value to inspect.");
+            return;
+        }
+
+        console.WriteLine($"Members of {type.FullName} (from '{query}'):");
+        foreach (var component in Introspector.ListComponents(type))
+        {
+            console.WriteLine($"  - {component}");
+        }
+    }
+
+    private void PrintHelp(
+        KeyBindings keyBindings,
+        KeyPressPatterns submitPromptDetailedKeys,
+        IReadOnlyList<Type> scriptGlobalsTypes
+    )
     {
         var newLineBindingName = KeyPressPatternToString(keyBindings.NewLine.DefinedPatterns ?? []);
         var submitPromptName = KeyPressPatternToString(
@@ -226,6 +280,7 @@ If the code isn't a complete statement, pressing [green]Enter[/] will insert a n
   - [green]{"F1"}[/]:  when the caret is in a type or member, open the corresponding MSDN documentation.
   - [green]{"F9"}[/]:  show the IL (intermediate language) for the current statement.
   - [green]{"F12"}[/]: open the type's source code in the browser, if the assembly supports Source Link.
+  - [green]{"<expr> ?"}[/]: e.g. {"DateTime ?"} or {"Http ?"} — list the members (with types) of a type by name, or of whatever an in-scope expression evaluates to.
 
 [underline]Configuration Options[/]
 All configuration, including theming, is done at startup via command line flags.
@@ -233,6 +288,16 @@ Run [green]--help[/] at the command line to view these options.
 """
             )
         );
+
+        foreach (var globalsType in scriptGlobalsTypes)
+        {
+            console.WriteLine();
+            console.WriteLine($"Available members ({globalsType.FullName}):");
+            foreach (var component in Introspector.ListComponents(globalsType))
+            {
+                console.WriteLine($"  - {component}");
+            }
+        }
 
         static string KeyPressPatternToString(IEnumerable<KeyPressPattern> patterns)
         {

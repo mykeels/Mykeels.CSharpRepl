@@ -94,6 +94,24 @@ You can add your own ScriptGlobals by adding a static class with static methods 
 "using static Mykeels.CSharpRepl.Sample.ScriptGlobals;"
 ```
 
+Any class named `*ScriptGlobals` that's brought into scope this way — at startup via `commands`, or by the user typing a `using static` statement mid-session — is picked up automatically by the `help` command, which lists its public static members alongside their type information (parameter types, return types, property types). No extra configuration needed; this works the same whether you're in the terminal REPL or a Slack session.
+
+## Exploring Types with `?`
+
+Beyond the automatic `*ScriptGlobals` listing, you can introspect anything on demand by typing `<expr> ?` — the member list (with type information) prints the same way `help` prints one for `*ScriptGlobals`:
+
+```csharp
+DateTime ?      // an unqualified type name, resolved via an active `using`
+System.DateTime ?   // a fully-qualified type name
+Http ?          // an in-scope expression — evaluated, then its runtime type is introspected
+```
+
+- If `<expr>` resolves to a type name (fully-qualified, or unqualified via a namespace already brought into scope with `using`), that type's members are listed directly.
+- Otherwise, `<expr>` is evaluated as C# and the *runtime type of the result* is introspected instead — this is what makes `Http ?` useful: `Http` is a property (e.g. from `ScriptGlobals`), so it's evaluated and whatever it returns (an `HttpClient`, say) gets introspected.
+- If neither works, you'll get a "Couldn't resolve" message instead of a compile error.
+
+This works the same in the terminal REPL and in a Slack session, and is the quickest way to explore what's available without leaving the REPL — e.g. `Http ?` to see what methods an injected client offers, or `SomeResult ?` to check what a previous expression's return value looks like.
+
 ## MCP Server
 
 You can also launch a MCP server that can be used to:
@@ -106,6 +124,96 @@ await McpServer.Run(typeof(ScriptGlobals));
 ```
 
 Such an MCP server can be used by a tool like [Cursor](https://www.cursor.com/) to give Cursor Chat the ability to execute C# code.
+
+## Slack Integration
+
+You can host the REPL over Slack instead of (or as well as) a terminal: a user runs a slash command in Slack, the bot starts a thread, and messages sent in that thread are evaluated as REPL input, with results/errors posted back as replies. Multiple threads can each run their own independent session.
+
+### 1. Create the Slack app
+
+The easiest way is from a manifest — go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From an app manifest**, and paste in:
+
+```json
+{
+  "display_information": {
+    "name": "Mykeels C# REPL",
+    "description": "Run a C# REPL session in a Slack thread",
+    "background_color": "#2c2d30"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "mykeels-csharp-repl",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/mykeels-csharp-repl",
+        "description": "Start a new C# REPL session in a thread",
+        "usage_hint": "",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "commands", "channels:history", "groups:history", "im:history"]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["message.channels", "message.groups", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
+```
+
+Notes on the manifest:
+
+- `interactivity.is_enabled: true` is required even though this app has no buttons/modals — Slack routes slash-command payloads through the interactivity pipeline when Socket Mode is on, so it won't deliver them without this.
+- Each `message.*` event needs its matching `*:history` scope to read message content in that conversation type: `message.channels` → `channels:history`, `message.groups` → `groups:history`, `message.im` → `im:history`. If you only need sessions in public channels, drop `message.groups`/`message.im` and their scopes.
+
+A manifest can't do everything, though — after creating the app:
+
+1. **Generate an app-level token.** Under **Basic Information → App-Level Tokens**, create one with the `connections:write` scope (starts with `xapp-`). This is what lets `SlackReplHost` use Socket Mode's WebSocket connection — the bot token alone isn't enough, and there's no way to bake this into the manifest since it's generated per-install.
+2. **Install the app to your workspace.** Under **OAuth & Permissions**, install it to get a bot token (starts with `xoxb-`).
+3. **Invite the bot** to whichever channels it should work in.
+
+(If you'd rather configure it by hand instead of from a manifest: enable Socket Mode; add the bot token scopes above under OAuth & Permissions; create the slash command under Slash Commands — no Request URL needed with Socket Mode; enable Event Subscriptions and subscribe to the `message.*` events you need. Then do the three steps above.)
+
+### 2. Run the host
+
+```csharp
+using Mykeels.CSharpRepl;
+
+await SlackReplHost.Run(
+    new SlackReplOptions
+    {
+        BotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN")!,
+        AppToken = Environment.GetEnvironmentVariable("SLACK_APP_TOKEN")!,
+        SlashCommand = "/mykeels-csharp-repl", // must match what you registered above
+        AllowedChannelIds = ["C0123456789"], // or AllowedUserIds — at least one is required, see below
+    }
+);
+```
+
+`SlackReplHost.Run` connects over Socket Mode and runs until cancelled (pass a `CancellationToken` to stop it), starting a new `Repl.Run` session — with its own `RoslynServices`, independent of any other open session — for every slash command invocation.
+
+### 3. Authorization
+
+At least one of `AllowedUserIds` or `AllowedChannelIds` must be set — `SlackReplHost` refuses to start otherwise, since anyone able to run the slash command would otherwise get a REPL with the same code-execution privileges as the host process:
+
+- `AllowedUserIds` / `AllowedChannelIds`: `HashSet<string>?` of Slack user/channel IDs allowed to start and use sessions. Leaving one unset doesn't restrict by it — e.g. setting only `AllowedChannelIds` allows any user in those channels.
+- `RestrictRepliesToSessionOwner` (default `true`): only the user who ran the slash command can send messages into their own session's thread.
+- `IsAuthorized`: optional `Func<SlackAuthorizationContext, bool>` for additional checks (e.g. against an external ACL), evaluated in addition to the allowlists above, not instead of them.
+- `IdleTimeout`: optional `TimeSpan` — a session thread with no activity for this long is closed automatically, so an abandoned thread doesn't hold a `RoslynServices` alive forever.
+
+Run `dotnet run -- slack` in `Mykeels.CSharpRepl.Sample` (with `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, and optionally `SLACK_ALLOWED_CHANNEL_IDS` set as a comma-separated list) to try it.
 
 ## Features
 
