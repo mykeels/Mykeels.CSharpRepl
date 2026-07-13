@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Concurrent;
+using System.Net;
 using CSharpRepl.Services;
 using CSharpRepl.Services.Roslyn;
 using SlackNet;
@@ -265,10 +266,13 @@ public sealed class SlackReplHost
             );
             return PostUnauthorizedReplyNoticeAsync(message.Channel, threadTs);
         }
-        log($"received: user={message.User} channel={message.Channel} thread={threadTs} text={message.Text}");
+        // Slack HTML-escapes &, <, and > in message text (so e.g. `List<string>` arrives as
+        // `List&lt;string&gt;`) — decode before treating it as C# source.
+        var text = WebUtility.HtmlDecode(message.Text) ?? string.Empty;
+        log($"received: user={message.User} channel={message.Channel} thread={threadTs} text={text}");
 
         session.Touch();
-        session.Console.Inbound.TryWrite(message.Text ?? string.Empty);
+        session.Console.Inbound.TryWrite(text);
         return Task.CompletedTask;
     }
 

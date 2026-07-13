@@ -147,6 +147,38 @@ public class SlackReplHostTests
     }
 
     [Test]
+    public async Task HandleMessageEvent_HtmlDecodesTheMessageTextBeforeWritingIt()
+    {
+        var host = CreateHost(OptionsAllowing("U1"));
+        await host.HandleSlashCommand(
+            new SlashCommand
+            {
+                UserId = "U1",
+                ChannelId = "C1",
+            }
+        );
+        var session = await WaitForSessionAsync(host, "C1", "100.001");
+
+        await host.HandleMessageEvent(
+            new MessageEvent
+            {
+                Channel = "C1",
+                Ts = "200",
+                ThreadTs = "100.001",
+                User = "U1",
+                // Slack escapes &, <, and > in message text.
+                Text = "List&lt;string&gt; names = [&quot;John Doe&quot;];",
+            }
+        );
+
+        var line = await session.Console.ReadLineAsync(CancellationToken.None);
+        Assert.That(line, Is.EqualTo("List<string> names = [\"John Doe\"];"));
+
+        await session.Console.Inbound.WriteAsync("exit");
+        await session.ReplTask.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    [Test]
     public async Task HandleMessageEvent_ForTrackedSessionFromNonOwner_IsIgnoredAndPostsANotice()
     {
         var host = CreateHost(OptionsAllowing("U1")); // RestrictRepliesToSessionOwner defaults to true
