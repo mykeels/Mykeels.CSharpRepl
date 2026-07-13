@@ -96,6 +96,22 @@ You can add your own ScriptGlobals by adding a static class with static methods 
 
 Any class named `*ScriptGlobals` that's brought into scope this way — at startup via `commands`, or by the user typing a `using static` statement mid-session — is picked up automatically by the `help` command, which lists its public static members alongside their type information (parameter types, return types, property types). No extra configuration needed; this works the same whether you're in the terminal REPL or a Slack session.
 
+## Exploring Types with `?`
+
+Beyond the automatic `*ScriptGlobals` listing, you can introspect anything on demand by typing `<expr> ?` — the member list (with type information) prints the same way `help` prints one for `*ScriptGlobals`:
+
+```csharp
+DateTime ?      // an unqualified type name, resolved via an active `using`
+System.DateTime ?   // a fully-qualified type name
+Http ?          // an in-scope expression — evaluated, then its runtime type is introspected
+```
+
+- If `<expr>` resolves to a type name (fully-qualified, or unqualified via a namespace already brought into scope with `using`), that type's members are listed directly.
+- Otherwise, `<expr>` is evaluated as C# and the *runtime type of the result* is introspected instead — this is what makes `Http ?` useful: `Http` is a property (e.g. from `ScriptGlobals`), so it's evaluated and whatever it returns (an `HttpClient`, say) gets introspected.
+- If neither works, you'll get a "Couldn't resolve" message instead of a compile error.
+
+This works the same in the terminal REPL and in a Slack session, and is the quickest way to explore what's available without leaving the REPL — e.g. `Http ?` to see what methods an injected client offers, or `SomeResult ?` to check what a previous expression's return value looks like.
+
 ## MCP Server
 
 You can also launch a MCP server that can be used to:

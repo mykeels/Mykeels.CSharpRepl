@@ -81,6 +81,58 @@ public class MessageReadEvalPrintLoopTests
 
         Assert.That(console.Output, Does.Not.Contain("Available members"));
     }
+
+    [Test]
+    public async Task Run_IntrospectionQuery_ResolvesAFullyQualifiedTypeName()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("System.DateTime ?");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Contain("Members of System.DateTime"));
+        Assert.That(console.Output, Does.Contain("System.DateTime Now"));
+    }
+
+    [Test]
+    public async Task Run_IntrospectionQuery_ResolvesAnUnqualifiedTypeNameViaAnActiveUsing()
+    {
+        // "System" is one of this REPL's default usings, so an unqualified "DateTime" should resolve too.
+        var console = new FakeConsoleEx();
+        console.Enqueue("DateTime ?");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Contain("Members of System.DateTime"));
+    }
+
+    [Test]
+    public async Task Run_IntrospectionQuery_ResolvesAnInScopeExpressionByItsRuntimeType()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("using static Mykeels.CSharpRepl.Sample.ScriptGlobals;");
+        console.Enqueue("Http ?");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Contain("Members of System.Net.Http.HttpClient"));
+        Assert.That(console.Output, Does.Contain("GetAsync"));
+    }
+
+    [Test]
+    public async Task Run_IntrospectionQuery_WhenUnresolvable_PrintsAMessageInsteadOfEvaluatingAsCode()
+    {
+        var console = new FakeConsoleEx();
+        console.Enqueue("ThisNameDoesNotExistAnywhere12345 ?");
+        console.Enqueue("exit");
+
+        await Repl.Run(console: console);
+
+        Assert.That(console.Output, Does.Contain("Couldn't resolve"));
+    }
 }
 
 file sealed class FakeConsoleEx : IConsoleEx, IAsyncLineConsole

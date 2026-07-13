@@ -69,6 +69,14 @@ internal sealed class MessageReadEvalPrintLoop(IConsoleEx console, RoslynService
                 await FlushAsync().ConfigureAwait(false);
                 continue;
             }
+            if (ReadEvalPrintLoop.TryParseIntrospectionQuery(commandText, out var introspectionQuery))
+            {
+                await ReadEvalPrintLoop
+                    .PrintIntrospectionAsync(roslyn, console, introspectionQuery, config.LoadScriptArgs)
+                    .ConfigureAwait(false);
+                await FlushAsync().ConfigureAwait(false);
+                continue;
+            }
 
             var result = await roslyn
                 .EvaluateAsync(commandText, config.LoadScriptArgs, CancellationToken.None)
@@ -140,6 +148,9 @@ Send C# code as a message and it will be evaluated and the result sent back.
 
 Global Variables:
   - ScriptGlobals: All global variables and services are static properties of the ScriptGlobals class.
+
+Exploring:
+  - Send `<expr> ?`, e.g. `DateTime ?` or `Http ?`, to list the members (with types) of a type by name, or of whatever an in-scope expression evaluates to.
 
 Send {Exit} to end this session.
 """

@@ -275,6 +275,47 @@ public sealed partial class RoslynServices
             .Select(a => a.GetType(typeName))
             .FirstOrDefault(t => t is not null);
 
+    /// <summary>
+    /// Backs the <c>&lt;query&gt; ?</c> help syntax: resolves <paramref name="query"/> to a <see cref="Type"/>
+    /// to introspect, so a user can explore either a type by name (e.g. <c>DateTime ?</c>) or a value already
+    /// in scope by inspecting what it evaluates to (e.g. <c>Http ?</c>, where <c>Http</c> is a property).
+    /// Tries, in order: <paramref name="query"/> as a fully-qualified type name; <paramref name="query"/>
+    /// qualified by each namespace currently brought into scope via a plain <c>using</c> directive (mirroring
+    /// how the compiler resolves an unqualified type name); finally, evaluating <paramref name="query"/> as an
+    /// expression and using the runtime type of its result. Returns <see langword="null"/> if none of those work.
+    /// </summary>
+    public async Task<Type?> ResolveIntrospectionTypeAsync(
+        string query,
+        string[]? args,
+        CancellationToken cancellationToken
+    )
+    {
+        await Initialization.ConfigureAwait(false);
+
+        if (ResolveType(query) is { } exactType)
+        {
+            return exactType;
+        }
+
+        var candidateNamespaces = referenceService
+            .Usings.Where(u => u.StaticKeyword.IsKind(SyntaxKind.None))
+            .Select(u => u.Name?.ToString())
+            .WhereNotNull();
+
+        foreach (var ns in candidateNamespaces)
+        {
+            if (ResolveType($"{ns}.{query}") is { } namespacedType)
+            {
+                return namespacedType;
+            }
+        }
+
+        var result = await EvaluateAsync(query, args, cancellationToken).ConfigureAwait(false);
+        return result is EvaluationResult.Success { ReturnValue.HasValue: true } success
+            ? success.ReturnValue.Value?.GetType()
+            : null;
+    }
+
     public AnsiColor ToColor(string classification) => highlighter.GetAnsiColor(classification);
 
     public async Task<IReadOnlyCollection<HighlightedSpan>> SyntaxHighlightAsync(string text)
