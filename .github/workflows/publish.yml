@@ -8,14 +8,13 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
+      id-token: write # Required for NuGet trusted publishing (OIDC)
 
     steps:
     - uses: actions/checkout@v4
@@ -80,9 +79,18 @@ jobs:
     - name: Pack
       run: dotnet pack Mykeels.CSharpRepl/Mykeels.CSharpRepl.csproj --configuration Release --no-build --output ./artifacts
 
+    - name: NuGet login (OIDC → temp API key)
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')
+      id: nuget-login
+      uses: NuGet/login@v1
+      with:
+        # nuget.org profile username (not email)
+        user: ${{ secrets.NUGET_USER }}
+
     - name: Push to NuGet
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')
       run: |
-        dotnet nuget push ./artifacts/*.nupkg --api-key ${{ env.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ./artifacts/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
     - name: Create Release
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
