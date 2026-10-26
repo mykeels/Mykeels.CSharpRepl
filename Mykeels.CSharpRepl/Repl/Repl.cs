@@ -84,12 +84,13 @@ public static class Repl
         }
 
         // we're being run interactively, start the prompt
-        var (prompt, exitCode) = InitializePrompt(console, appStorage, roslyn, config);
+        var resultHistory = new ResultHistory();
+        var (prompt, exitCode) = InitializePrompt(console, appStorage, roslyn, config, resultHistory);
         if (prompt is not null)
         {
             try
             {
-                await new ReadEvalPrintLoop(console, roslyn, prompt)
+                await new ReadEvalPrintLoop(console, roslyn, prompt, resultHistory)
                     .RunAsync(config, OnLoad)
                     .ConfigureAwait(false);
             }
@@ -136,14 +137,15 @@ public static class Repl
         IConsoleEx console,
         string appStorage,
         RoslynServices roslyn,
-        Configuration config
+        Configuration config,
+        ResultHistory resultHistory
     )
     {
         try
         {
             var prompt = new Prompt(
                 persistentHistoryFilepath: Path.Combine(appStorage, "prompt-history"),
-                callbacks: new CSharpReplPromptCallbacks(console, roslyn, config),
+                callbacks: new CSharpReplPromptCallbacks(console, roslyn, config, resultHistory),
                 configuration: new PromptConfiguration(
                     keyBindings: config.KeyBindings,
                     prompt: config.Prompt,

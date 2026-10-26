@@ -8,6 +8,7 @@ using CSharpRepl.Services.Roslyn;
 using CSharpRepl.Services.Roslyn.Formatting;
 using CSharpRepl.Services.Roslyn.Scripting;
 using CSharpRepl.Services.Theming;
+using Newtonsoft.Json;
 using PrettyPrompt;
 using PrettyPrompt.Consoles;
 using PrettyPrompt.Highlighting;
@@ -20,13 +21,20 @@ internal sealed class ReadEvalPrintLoop
     private readonly IConsoleEx console;
     private readonly RoslynServices roslyn;
     private readonly IPrompt prompt;
+    private readonly ResultHistory resultHistory;
     private static Configuration config;
 
-    public ReadEvalPrintLoop(IConsoleEx console, RoslynServices roslyn, IPrompt prompt)
+    public ReadEvalPrintLoop(
+        IConsoleEx console,
+        RoslynServices roslyn,
+        IPrompt prompt,
+        ResultHistory resultHistory
+    )
     {
         this.console = console;
         this.roslyn = roslyn;
         this.prompt = prompt;
+        this.resultHistory = resultHistory;
     }
 
     public async Task RunAsync(Configuration config, Action<RoslynServices>? onLoad = null)
@@ -38,6 +46,9 @@ internal sealed class ReadEvalPrintLoop
         );
         console.WriteLine(
             $"Type {Help} to learn more, {Exit} to quit, and {Clear} to clear your terminal."
+        );
+        console.WriteLine(
+            "Press Ctrl+Up / Ctrl+Down to browse recent results in a scrollable JSON view."
         );
         console.WriteLine(string.Empty);
 
@@ -103,7 +114,8 @@ internal sealed class ReadEvalPrintLoop
                     console,
                     result,
                     displayDetails ? Level.FirstDetailed : Level.FirstSimple,
-                    response.Text.Trim()
+                    response.Text.Trim(),
+                    resultHistory
                 );
             }
         }
@@ -157,7 +169,8 @@ internal sealed class ReadEvalPrintLoop
         IConsoleEx console,
         EvaluationResult result,
         Level level,
-        string? commandText = null
+        string? commandText = null,
+        ResultHistory? resultHistory = null
     )
     {
         switch (result)
@@ -166,9 +179,17 @@ internal sealed class ReadEvalPrintLoop
                 if (ok.ReturnValue.HasValue)
                 {
                     var formatted = await roslyn.PrettyPrintAsync(ok.ReturnValue.Value, level);
+                    var payload = new { Result = ok.ReturnValue.Value };
+                    if (!string.IsNullOrEmpty(commandText) && resultHistory is not null)
+                    {
+                        resultHistory.Add(
+                            commandText,
+                            JsonConvert.SerializeObject(payload, Formatting.Indented)
+                        );
+                    }
                     if (!string.IsNullOrEmpty(commandText) && config.LogSuccess is not null)
                     {
-                        config.LogSuccess(commandText, new { Result = ok.ReturnValue.Value });
+                        config.LogSuccess(commandText, payload);
                     }
                     else
                     {
@@ -179,6 +200,17 @@ internal sealed class ReadEvalPrintLoop
                 break;
             case EvaluationResult.Error err:
                 var formattedError = await roslyn.PrettyPrintAsync(err.Exception, level);
+                if (!string.IsNullOrEmpty(commandText) && resultHistory is not null)
+                {
+                    resultHistory.Add(
+                        commandText,
+                        JsonConvert.SerializeObject(
+                            new { Error = err.Exception },
+                            Formatting.Indented
+                        ),
+                        isError: true
+                    );
+                }
                 if (config.LogError is not null)
                 {
                     config.LogError(commandText, err.Exception, new { Error = err.Exception });
@@ -281,6 +313,10 @@ If the code isn't a complete statement, pressing [green]Enter[/] will insert a n
   - [green]{"F9"}[/]:  show the IL (intermediate language) for the current statement.
   - [green]{"F12"}[/]: open the type's source code in the browser, if the assembly supports Source Link.
   - [green]{"<expr> ?"}[/]: e.g. {"DateTime ?"} or {"Http ?"} — list the members (with types) of a type by name, or of whatever an in-scope expression evaluates to.
+
+[underline]Result History[/]
+  - [green]{"Ctrl+Up"}[/] / [green]{"Ctrl+Down"}[/]: browse the last {ResultHistory.MaxEntries} request/result pairs in a scrollable, syntax-highlighted JSON view.
+  - In the result view: [green]{"Up"}[/]/[green]{"Down"}[/]/[green]{"PgUp"}[/]/[green]{"PgDn"}[/] scroll JSON, [green]{"Esc"}[/] or [green]{"Enter"}[/] to close.
 
 [underline]Configuration Options[/]
 All configuration, including theming, is done at startup via command line flags.

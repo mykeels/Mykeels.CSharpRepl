@@ -30,16 +30,19 @@ internal class CSharpReplPromptCallbacks : PromptCallbacks
     private readonly IConsoleEx console;
     private readonly RoslynServices roslyn;
     private readonly Configuration configuration;
+    private readonly ResultHistory resultHistory;
 
     public CSharpReplPromptCallbacks(
         IConsoleEx console,
         RoslynServices roslyn,
-        Configuration configuration
+        Configuration configuration,
+        ResultHistory resultHistory
     )
     {
         this.console = console;
         this.roslyn = roslyn;
         this.configuration = configuration;
+        this.resultHistory = resultHistory;
     }
 
     protected override IEnumerable<(
@@ -82,6 +85,25 @@ internal class CSharpReplPromptCallbacks : PromptCallbacks
             new(ConsoleModifiers.Control, ConsoleKey.D),
             (text, caret, cancellationToken) =>
                 Task.FromResult<KeyPressCallbackResult?>(new ExitApplicationKeyPress())
+        );
+
+        yield return (
+            new(ConsoleModifiers.Control, ConsoleKey.UpArrow),
+            (text, caret, cancellationToken) =>
+            {
+                // Open the scrollable result view (Ctrl+Up/Down inside navigate history).
+                ResultHistoryViewer.Show(console, resultHistory);
+                return Task.FromResult<KeyPressCallbackResult?>(null);
+            }
+        );
+
+        yield return (
+            new(ConsoleModifiers.Control, ConsoleKey.DownArrow),
+            (text, caret, cancellationToken) =>
+            {
+                ResultHistoryViewer.Show(console, resultHistory);
+                return Task.FromResult<KeyPressCallbackResult?>(null);
+            }
         );
     }
 

@@ -27,6 +27,7 @@
     <PackageReference Include="PrettyPrompt" Version="4.1.1" />
     <PackageReference Include="SlackNet" Version="0.17.10" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
+    <PackageReference Include="Spectre.Console.Json" Version="0.49.1" />
     <PackageReference Include="System.IO.Abstractions" Version="22.0.14" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.0" />
   </ItemGroup>
