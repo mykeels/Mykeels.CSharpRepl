@@ -31,12 +31,12 @@ internal sealed class ResultHistory
             entries.RemoveAt(0);
         }
 
-        // Reset browse position so the next Ctrl+Up starts at the newest entry.
+        // Reset browse position so the next open starts at the newest entry.
         BrowseIndex = -1;
     }
 
     /// <summary>
-    /// Move to an older entry (Ctrl+Up). Returns the entry, or null if history is empty.
+    /// Move to an older entry (Left in the viewer). Returns the entry, or null if history is empty.
     /// </summary>
     public ResultHistoryEntry? MoveOlder()
     {
@@ -52,7 +52,7 @@ internal sealed class ResultHistory
     }
 
     /// <summary>
-    /// Move to a newer entry (Ctrl+Down). Returns the entry, or null if at the newest / empty.
+    /// Move to a newer entry (Right in the viewer). Returns the entry, or null if at the newest / empty.
     /// </summary>
     public ResultHistoryEntry? MoveNewer()
     {

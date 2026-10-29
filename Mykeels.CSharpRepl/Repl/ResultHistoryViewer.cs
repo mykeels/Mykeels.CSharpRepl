@@ -61,6 +61,9 @@ internal static class ResultHistoryViewer
 
                         switch (info.Key)
                         {
+                            // Left/Right are the primary history keys: Ctrl+Up/Down are kept for terminals
+                            // that pass them through, but macOS claims them for Mission Control by default.
+                            case ConsoleKey.LeftArrow:
                             case ConsoleKey.UpArrow when ctrl:
                                 if (history.BrowseIndex > 0)
                                 {
@@ -69,6 +72,7 @@ internal static class ResultHistoryViewer
                                 }
                                 break;
 
+                            case ConsoleKey.RightArrow:
                             case ConsoleKey.DownArrow when ctrl:
                                 if (history.BrowseIndex >= 0 && history.BrowseIndex < history.Count - 1)
                                 {
@@ -85,11 +89,14 @@ internal static class ResultHistoryViewer
                                 scrollOffset = Math.Min(MaxScroll(console, history), scrollOffset + 1);
                                 break;
 
+                            // Space/B mirror `less`, for Mac keyboards without PgUp/PgDn keys.
                             case ConsoleKey.PageUp:
+                            case ConsoleKey.B:
                                 scrollOffset = Math.Max(0, scrollOffset - JsonViewportHeight(console));
                                 break;
 
                             case ConsoleKey.PageDown:
+                            case ConsoleKey.Spacebar:
                                 scrollOffset = Math.Min(
                                     MaxScroll(console, history),
                                     scrollOffset + JsonViewportHeight(console)
@@ -107,6 +114,7 @@ internal static class ResultHistoryViewer
                             case ConsoleKey.Escape:
                             case ConsoleKey.Enter:
                             case ConsoleKey.Q:
+                            case ConsoleKey.O when ctrl:
                                 history.ResetBrowse();
                                 return;
                         }
@@ -175,7 +183,7 @@ internal static class ResultHistoryViewer
         };
 
         var footer = new Text(
-            "Ctrl+↑/↓ history  ·  ↑/↓/PgUp/PgDn scroll  ·  Esc/Enter close",
+            "←/→ history  ·  ↑/↓ scroll  ·  Space/B page  ·  Esc/Enter/Ctrl+O close",
             PunctuationStyle
         );
 

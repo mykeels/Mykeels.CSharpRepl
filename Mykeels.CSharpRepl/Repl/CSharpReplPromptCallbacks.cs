@@ -87,24 +87,19 @@ internal class CSharpReplPromptCallbacks : PromptCallbacks
                 Task.FromResult<KeyPressCallbackResult?>(new ExitApplicationKeyPress())
         );
 
-        yield return (
-            new(ConsoleModifiers.Control, ConsoleKey.UpArrow),
-            (text, caret, cancellationToken) =>
-            {
-                // Open the scrollable result view (Ctrl+Up/Down inside navigate history).
-                ResultHistoryViewer.Show(console, resultHistory);
-                return Task.FromResult<KeyPressCallbackResult?>(null);
-            }
-        );
-
-        yield return (
-            new(ConsoleModifiers.Control, ConsoleKey.DownArrow),
-            (text, caret, cancellationToken) =>
-            {
-                ResultHistoryViewer.Show(console, resultHistory);
-                return Task.FromResult<KeyPressCallbackResult?>(null);
-            }
-        );
+        // Open the scrollable result view. Ctrl+O is the primary binding because it reaches the app on
+        // every platform; macOS claims Ctrl+Up/Down for Mission Control by default, so those are extras.
+        foreach (var key in new[] { ConsoleKey.O, ConsoleKey.UpArrow, ConsoleKey.DownArrow })
+        {
+            yield return (
+                new(ConsoleModifiers.Control, key),
+                (text, caret, cancellationToken) =>
+                {
+                    ResultHistoryViewer.Show(console, resultHistory);
+                    return Task.FromResult<KeyPressCallbackResult?>(null);
+                }
+            );
+        }
     }
 
     protected override Task<TextSpan> GetSpanToReplaceByCompletionAsync(

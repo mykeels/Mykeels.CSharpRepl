@@ -48,7 +48,7 @@ internal sealed class ReadEvalPrintLoop
             $"Type {Help} to learn more, {Exit} to quit, and {Clear} to clear your terminal."
         );
         console.WriteLine(
-            "Press Ctrl+Up / Ctrl+Down to browse recent results in a scrollable JSON view."
+            "Press Ctrl+O to browse recent results in a scrollable JSON view."
         );
         console.WriteLine(string.Empty);
 
@@ -315,8 +315,8 @@ If the code isn't a complete statement, pressing [green]Enter[/] will insert a n
   - [green]{"<expr> ?"}[/]: e.g. {"DateTime ?"} or {"Http ?"} — list the members (with types) of a type by name, or of whatever an in-scope expression evaluates to.
 
 [underline]Result History[/]
-  - [green]{"Ctrl+Up"}[/] / [green]{"Ctrl+Down"}[/]: browse the last {ResultHistory.MaxEntries} request/result pairs in a scrollable, syntax-highlighted JSON view.
-  - In the result view: [green]{"Up"}[/]/[green]{"Down"}[/]/[green]{"PgUp"}[/]/[green]{"PgDn"}[/] scroll JSON, [green]{"Esc"}[/] or [green]{"Enter"}[/] to close.
+  - [green]{"Ctrl+O"}[/]: browse the last {ResultHistory.MaxEntries} request/result pairs in a scrollable, syntax-highlighted JSON view ([green]{"Ctrl+Up"}[/] / [green]{"Ctrl+Down"}[/] also work where the OS doesn't claim them).
+  - In the result view: [green]{"Left"}[/]/[green]{"Right"}[/] move between results, [green]{"Up"}[/]/[green]{"Down"}[/] scroll, [green]{"Space"}[/]/[green]{"B"}[/] (or [green]{"PgDn"}[/]/[green]{"PgUp"}[/]) page, [green]{"Esc"}[/], [green]{"Enter"}[/] or [green]{"Ctrl+O"}[/] to close.
 
 [underline]Configuration Options[/]
 All configuration, including theming, is done at startup via command line flags.

@@ -114,15 +114,15 @@ This works the same in the terminal REPL and in a Slack session, and is the quic
 
 ## Browsing Result History
 
-The terminal REPL keeps the last 64 commands and their results in memory, and you can scroll back through them in a full-screen JSON view. Press **Ctrl+↑** or **Ctrl+↓** at the prompt to open it at the most recent result:
+The terminal REPL keeps the last 64 commands and their results in memory, and you can scroll back through them in a full-screen JSON view. Press **Ctrl+O** at the prompt to open it at the most recent result:
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+↑` / `Ctrl+↓` | Go to an older / newer result |
+| `←` / `→` | Go to an older / newer result |
 | `↑` / `↓` | Scroll the JSON one line |
-| `PgUp` / `PgDn` | Scroll the JSON one screen |
+| `Space` / `B` (or `PgDn` / `PgUp`) | Scroll the JSON one screen down / up |
 | `Home` / `End` | Jump to the top / bottom of the JSON |
-| `Esc` / `Enter` / `Q` | Close the viewer and return to the prompt |
+| `Esc` / `Enter` / `Q` / `Ctrl+O` | Close the viewer and return to the prompt |
 
 The panel header shows which result you're on (e.g. `Result 3/5`) and which lines are visible. Results have a green border and errors a red one. Keys and values are colour-coded by JSON type, and the command that produced the result is shown above the panel.
 
@@ -130,7 +130,7 @@ Notes:
 
 - The history lasts only for the session; it isn't saved to disk.
 - Only the interactive terminal REPL records history. Slack sessions and the MCP server don't.
-- The OS or terminal may take over Ctrl+arrow keys before the REPL sees them. On macOS, `Ctrl+↑` / `Ctrl+↓` open Mission Control and App Exposé by default. If the viewer doesn't open, turn those off under **System Settings → Keyboard → Keyboard Shortcuts → Mission Control**, or remap them in your terminal.
+- `Ctrl+↑` / `Ctrl+↓` also open the viewer, and move between results inside it, but only where the OS lets them through. On macOS they're taken by Mission Control and App Exposé by default, which is why `Ctrl+O` and `←` / `→` are the main keys.
 
 ## MCP Server
 
@@ -241,7 +241,7 @@ Run `dotnet run -- slack` in `Mykeels.CSharpRepl.Sample` (with `SLACK_BOT_TOKEN`
 - **Code Completion**: Intelligent code completion with IntelliSense
 - **Error Handling**: Detailed error messages with stack traces
 - **JSON Output**: Results are automatically serialized to indented, syntax-highlighted JSON
-- **Result History**: Browse recent results in a scrollable JSON viewer with `Ctrl+↑` / `Ctrl+↓`
+- **Result History**: Browse recent results in a scrollable JSON viewer with `Ctrl+O`
 - **Customizable**: Configure references, namespaces, and output formatting
 - **Interactive**: Full C# interactive environment with REPL capabilities
 
